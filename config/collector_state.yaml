@@ -1,0 +1,126 @@
+states:
+    - symbol: SOLUSDT
+      intervals:
+        - interval: 5m
+          start_time: "2025-04-09T18:00:36+08:00"
+        - interval: 15m
+          start_time: "2025-04-09T18:00:36+08:00"
+        - interval: 4h
+          start_time: "2025-04-10T20:00:00+08:00"
+        - interval: 1d
+          start_time: "2025-04-12T00:00:00+08:00"
+        - interval: 1h
+          start_time: "2025-04-09T18:00:36+08:00"
+      updated_at: "2025-04-10T18:00:36+08:00"
+    - symbol: LTCUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2025-04-09T18:00:36+08:00"
+        - interval: 15m
+          start_time: "2025-04-09T18:00:36+08:00"
+        - interval: 4h
+          start_time: "2025-04-10T20:00:00+08:00"
+        - interval: 1d
+          start_time: "2025-04-12T00:00:00+08:00"
+      updated_at: "2025-04-10T18:00:36+08:00"
+    - symbol: UNIUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-04-09T18:00:36+08:00"
+        - interval: 4h
+          start_time: "2025-04-10T20:00:00+08:00"
+        - interval: 1d
+          start_time: "2025-04-12T00:00:00+08:00"
+        - interval: 1h
+          start_time: "2025-04-09T18:00:36+08:00"
+      updated_at: "2025-04-10T18:00:36+08:00"
+    - symbol: AAVEUSDT
+      intervals:
+        - interval: 4h
+          start_time: "2025-04-10T20:00:00+08:00"
+        - interval: 1d
+          start_time: "2025-04-12T00:00:00+08:00"
+        - interval: 1h
+          start_time: "2025-04-09T18:00:36+08:00"
+        - interval: 15m
+          start_time: "2025-04-09T18:00:36+08:00"
+      updated_at: "2025-04-10T18:00:36+08:00"
+    - symbol: ETHUSDT
+      intervals:
+        - interval: 5m
+          start_time: "2025-04-09T18:00:36+08:00"
+        - interval: 15m
+          start_time: "2025-04-09T18:00:36+08:00"
+        - interval: 4h
+          start_time: "2025-04-10T20:00:00+08:00"
+        - interval: 1d
+          start_time: "2025-04-12T00:00:00+08:00"
+        - interval: 1h
+          start_time: "2025-04-09T18:00:36+08:00"
+        - interval: 1m
+          start_time: "2025-04-09T18:00:36+08:00"
+      updated_at: "2025-04-10T18:00:36+08:00"
+    - symbol: BNBUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2025-04-09T18:00:36+08:00"
+        - interval: 5m
+          start_time: "2025-04-09T18:00:36+08:00"
+        - interval: 15m
+          start_time: "2025-04-09T18:00:36+08:00"
+        - interval: 4h
+          start_time: "2025-04-10T20:00:00+08:00"
+        - interval: 1d
+          start_time: "2025-04-12T00:00:00+08:00"
+      updated_at: "2025-04-10T18:00:36+08:00"
+    - symbol: LINKUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2025-04-09T18:00:36+08:00"
+        - interval: 15m
+          start_time: "2025-04-09T18:00:36+08:00"
+        - interval: 4h
+          start_time: "2025-04-10T20:00:00+08:00"
+        - interval: 1d
+          start_time: "2025-04-12T00:00:00+08:00"
+      updated_at: "2025-04-10T18:00:36+08:00"
+    - symbol: BTCUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2025-04-10T20:00:00+08:00"
+        - interval: 1m
+          start_time: "2025-04-09T18:00:36+08:00"
+        - interval: 5m
+          start_time: "2025-04-09T18:00:36+08:00"
+        - interval: 15m
+          start_time: "2025-04-09T18:00:36+08:00"
+        - interval: 4h
+          start_time: "2025-04-10T20:00:00+08:00"
+        - interval: 1d
+          start_time: "2025-04-12T00:00:00+08:00"
+      updated_at: "2025-04-10T18:00:36+08:00"
+    - symbol: XRPUSDT
+      intervals:
+        - interval: 5m
+          start_time: "2025-04-09T18:00:36+08:00"
+        - interval: 15m
+          start_time: "2025-04-09T18:00:36+08:00"
+        - interval: 4h
+          start_time: "2025-04-10T20:00:00+08:00"
+        - interval: 1d
+          start_time: "2025-04-12T00:00:00+08:00"
+        - interval: 1h
+          start_time: "2025-04-09T18:00:36+08:00"
+      updated_at: "2025-04-10T18:00:36+08:00"
+    - symbol: AVAXUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2025-04-12T00:00:00+08:00"
+        - interval: 1h
+          start_time: "2025-04-09T18:00:36+08:00"
+        - interval: 15m
+          start_time: "2025-04-09T18:00:36+08:00"
+        - interval: 4h
+          start_time: "2025-04-10T20:00:00+08:00"
+      updated_at: "2025-04-10T18:00:36+08:00"
+updated_at: "2025-04-10T18:00:36+08:00"

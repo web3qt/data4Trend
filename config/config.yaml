@@ -1,0 +1,26 @@
+binance:
+  api_key: ""  # 不需要API密钥就可以获取公共K线数据
+  secret_key: ""
+
+mysql:
+  host: "localhost"
+  port: 3306
+  user: "root"
+  password: "123456"
+  database: "kline_data"
+
+server:
+  port: 8080
+  env: development
+
+http:
+  timeout: 30
+  proxy: "http://127.0.0.1:7890"
+  
+# 币种配置文件路径
+symbols_config_path: "config/symbols.yaml"
+
+log:
+  level: "info"
+  json_format: false
+  output_path: "logs/dataFeeder.log"
