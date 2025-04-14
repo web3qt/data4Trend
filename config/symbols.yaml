@@ -1,70 +1,18 @@
-# 币种分组配置
+# 币种配置
 groups:
-  # 主要交易对（高优先级，完整数据）
-  primary:
-    symbols:
-      - BTCUSDT
-    intervals: ["1m", "5m", "15m", "1h", "4h", "1d"]
+  # 主交易对组
+  main:
+    symbols: []  # 将由程序自动获取前200个市值最大的币种
+    intervals: ["15m", "4h", "1d"]  # 仅支持这三个时间周期
     start_times:
       minute: "2023-01-01T00:00:00Z"
       hour: "2023-01-01T00:00:00Z"
       day: "2023-01-01T00:00:00Z"
     enabled: true
     poll_intervals:
-      "1m": 1m
-      "5m": 5m
       "15m": 15m
-      "1h": 1h
       "4h": 4h
       "1d": 24h
-
-  # 二线交易对（中等优先级，较少数据点）
-  secondary:
-    symbols:
-      - BNBUSDT
-      - SOLUSDT
-      - XRPUSDT
-    intervals: ["5m", "15m", "1h", "4h", "1d"]
-    start_times:
-      minute: "2025-01-01T00:00:00Z"
-      hour: "2025-01-01T00:00:00Z"
-      day: "2023-01-01T00:00:00Z"
-    enabled: true
-    poll_intervals:
-      "5m": 5m
-      "15m": 15m
-      "1h": 1h
-      "4h": 4h
-      "1d": 24h
-
-  # 监控交易对（低优先级，仅关键数据点）
-  monitoring:
-    symbols:
-      - AVAXUSDT
-      - LTCUSDT
-      - LINKUSDT
-      - UNIUSDT
-      - AAVEUSDT
-    intervals: ["15m", "1h", "4h", "1d"]
-    start_times:
-      minute: "2025-01-01T00:00:00Z"
-      hour: "2025-01-01T00:00:00Z"
-      day: "2023-01-01T00:00:00Z"
-    enabled: true
-    poll_intervals:
-      "15m": 15m
-      "1h": 1h
-      "4h": 4h
-      "1d": 24h
-
-# 单个币种的特殊配置（会覆盖组配置）
-symbols:
-  BTCUSDT:
-    priority: high
-    start_times:
-      minute: "2023-01-01T00:00:00Z" # 比特币获取更长时间的分钟数据
-  ETHUSDT:
-    priority: high
 
 # 全局设置
 settings:

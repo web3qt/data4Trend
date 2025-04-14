@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/web3qt/dataFeeder/config"
+	"github.com/web3qt/data4Trend/config"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"

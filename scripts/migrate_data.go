@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/web3qt/dataFeeder/config"
-	"github.com/web3qt/dataFeeder/pkg/logging"
+	"github.com/web3qt/data4Trend/config"
+	"github.com/web3qt/data4Trend/pkg/logging"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"

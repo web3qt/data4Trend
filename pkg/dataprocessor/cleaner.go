@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/web3qt/dataFeeder/internal/types"
-	"github.com/web3qt/dataFeeder/pkg/logging"
+	"github.com/web3qt/data4Trend/internal/types"
+	"github.com/web3qt/data4Trend/pkg/logging"
 )
 
 type DataCleaner struct {

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/adshao/go-binance/v2"
-	"github.com/web3qt/dataFeeder/internal/types"
+	"github.com/web3qt/data4Trend/internal/types"
 )
 
 // BinanceKlinesServiceAdapter 适配器，将binance.KlinesService适配到我们的KlinesService接口

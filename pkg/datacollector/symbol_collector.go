@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/web3qt/dataFeeder/config"
-	"github.com/web3qt/dataFeeder/internal/types"
-	"github.com/web3qt/dataFeeder/pkg/logging"
+	"github.com/web3qt/data4Trend/config"
+	"github.com/web3qt/data4Trend/internal/types"
+	"github.com/web3qt/data4Trend/pkg/logging"
 )
 
 // SymbolCollector 管理单个交易对的多个时间周期K线收集

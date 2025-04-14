@@ -28,6 +28,6 @@ echo "主机: localhost"
 echo "端口: 3306"
 echo "用户名: root"
 echo "密码: 123456"
-echo "数据库: kline_data"
+echo "数据库: data4trend"
 
 echo "\n您可以通过运行 ./run.sh 来启动数据馈送系统"

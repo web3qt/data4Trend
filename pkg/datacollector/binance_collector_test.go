@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/web3qt/dataFeeder/config"
-	"github.com/web3qt/dataFeeder/internal/types"
+	"github.com/web3qt/data4Trend/config"
+	"github.com/web3qt/data4Trend/internal/types"
 )
 
 // MockBinanceKlinesService is a mock implementation of BinanceKlinesService

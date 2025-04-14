@@ -347,3 +347,22 @@ func contains(slice []string, str string) bool {
 	}
 	return false
 }
+
+// GetGroup 获取指定名称的币种组
+func (m *SymbolManager) GetGroup(groupName string) *SymbolGroup {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if m.config == nil {
+		return nil
+	}
+
+	group, exists := m.config.Groups[groupName]
+	if !exists {
+		return nil
+	}
+
+	// 返回组的副本，以避免并发修改
+	groupCopy := group
+	return &groupCopy
+}

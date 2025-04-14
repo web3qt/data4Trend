@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/web3qt/dataFeeder/config"
+	"github.com/web3qt/data4Trend/config"
 	"gopkg.in/yaml.v2"
 )
 

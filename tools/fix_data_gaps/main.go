@@ -10,8 +10,8 @@ import (
 	"time"
 
 	binance "github.com/adshao/go-binance/v2"
-	"github.com/web3qt/dataFeeder/config"
-	"github.com/web3qt/dataFeeder/internal/utils"
+	"github.com/web3qt/data4Trend/config"
+	"github.com/web3qt/data4Trend/internal/utils"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"

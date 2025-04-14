@@ -10,9 +10,9 @@ import (
 
 	"github.com/adshao/go-binance/v2"
 	"github.com/sirupsen/logrus"
-	"github.com/web3qt/dataFeeder/config"
-	"github.com/web3qt/dataFeeder/internal/types"
-	"github.com/web3qt/dataFeeder/pkg/logging"
+	"github.com/web3qt/data4Trend/config"
+	"github.com/web3qt/data4Trend/internal/types"
+	"github.com/web3qt/data4Trend/pkg/logging"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -1359,5 +1359,63 @@ func parseFloat(str string) float64 {
 // 添加SaveKLineData方法
 func (s *MySQLStore) SaveKLineData(ctx context.Context, data *types.KLineData) error {
 	// 实现数据保存逻辑
+	return nil
+}
+
+// DeleteKLinesInTimeRange 删除指定时间范围内的K线数据
+func (s *MySQLStore) DeleteKLinesInTimeRange(ctx context.Context, symbol string, interval string, startTime time.Time, endTime time.Time) error {
+	logging.Logger.WithFields(logrus.Fields{
+		"symbol":     symbol,
+		"interval":   interval,
+		"start_time": startTime.Format(time.RFC3339),
+		"end_time":   endTime.Format(time.RFC3339),
+	}).Info("删除时间范围内的K线数据")
+
+	// 验证输入
+	if symbol == "" || interval == "" {
+		return fmt.Errorf("交易对和时间间隔不能为空")
+	}
+
+	if startTime.After(endTime) {
+		return fmt.Errorf("开始时间不能晚于结束时间")
+	}
+
+	// 验证间隔是否是支持的时间周期
+	if interval != "15m" && interval != "4h" && interval != "1d" {
+		return fmt.Errorf("不支持的时间间隔: %s，仅支持 15m, 4h, 1d", interval)
+	}
+
+	// 获取表名
+	tableName := getCoinTableName(symbol)
+	
+	// 检查表是否存在
+	if !s.tableExists(tableName) {
+		return fmt.Errorf("交易对表不存在: %s", tableName)
+	}
+
+	// 执行删除操作
+	result := s.db.Where("interval_type = ? AND open_time >= ? AND open_time <= ?", 
+		interval, startTime, endTime).
+		Delete(&CoinKLine{})
+	
+	if result.Error != nil {
+		logging.Logger.WithFields(logrus.Fields{
+			"symbol":     symbol,
+			"interval":   interval,
+			"start_time": startTime,
+			"end_time":   endTime,
+			"error":      result.Error,
+		}).Error("删除K线数据失败")
+		return fmt.Errorf("删除K线数据失败: %w", result.Error)
+	}
+
+	logging.Logger.WithFields(logrus.Fields{
+		"symbol":      symbol,
+		"interval":    interval,
+		"start_time":  startTime,
+		"end_time":    endTime,
+		"rows_deleted": result.RowsAffected,
+	}).Info("成功删除K线数据")
+
 	return nil
 }

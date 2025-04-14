@@ -3,7 +3,7 @@ package interfaces
 import (
 	"context"
 
-	"github.com/web3qt/dataFeeder/internal/types"
+	"github.com/web3qt/data4Trend/internal/types"
 )
 
 // KlinesService 定义了K线服务的接口

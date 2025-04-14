@@ -13,9 +13,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
-	"github.com/web3qt/dataFeeder/internal/types"
-	"github.com/web3qt/dataFeeder/pkg/datastore"
-	"github.com/web3qt/dataFeeder/pkg/logging"
+	"github.com/web3qt/data4Trend/internal/types"
+	"github.com/web3qt/data4Trend/pkg/datastore"
+	"github.com/web3qt/data4Trend/pkg/logging"
 )
 
 var upgrader = websocket.Upgrader{
@@ -74,6 +74,7 @@ func (s *Server) registerRoutes() {
 		apiGroup.GET("/multi_klines", s.handleGetMultiKlines) // 多交易对K线数据查询
 		apiGroup.GET("/check_gaps", s.handleCheckGaps)        // 检查数据缺口
 		apiGroup.POST("/fix_gaps", s.handleFixGaps)           // 修复数据缺口
+		apiGroup.DELETE("/klines", s.handleDeleteKlines)      // 删除指定时间范围的K线数据
 	}
 }
 
@@ -633,5 +634,78 @@ func (s *Server) handleFixGaps(c *gin.Context) {
 		"interval":   req.Interval,
 		"gaps_count": len(gaps),
 		"status":     "processing",
+	})
+}
+
+// handleDeleteKlines 处理删除指定时间范围内的K线数据的请求
+func (s *Server) handleDeleteKlines(c *gin.Context) {
+	symbol := c.Query("symbol")
+	interval := c.Query("interval")
+	startTimeStr := c.Query("start_time")
+	endTimeStr := c.Query("end_time")
+
+	// 验证必填参数
+	if symbol == "" || interval == "" || startTimeStr == "" || endTimeStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "symbol, interval, start_time 和 end_time 参数是必需的",
+		})
+		return
+	}
+
+	// 验证间隔是否是支持的时间周期
+	if interval != "15m" && interval != "4h" && interval != "1d" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("不支持的时间间隔: %s，仅支持 15m, 4h, 1d", interval),
+		})
+		return
+	}
+
+	// 解析时间
+	startTime, err := time.Parse(time.RFC3339, startTimeStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("无效的开始时间格式: %v", err),
+		})
+		return
+	}
+
+	endTime, err := time.Parse(time.RFC3339, endTimeStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("无效的结束时间格式: %v", err),
+		})
+		return
+	}
+
+	// 验证开始时间必须早于结束时间
+	if startTime.After(endTime) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "开始时间不能晚于结束时间",
+		})
+		return
+	}
+
+	// 请求确认
+	confirm := c.Query("confirm")
+	if confirm != "true" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "此操作将永久删除数据。请添加 confirm=true 参数以确认操作",
+		})
+		return
+	}
+
+	// 执行删除操作
+	err = s.mysqlStore.DeleteKLinesInTimeRange(c.Request.Context(), symbol, interval, startTime, endTime)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": fmt.Sprintf("删除K线数据失败: %v", err),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": fmt.Sprintf("成功删除 %s 交易对在 %s 到 %s 时间范围内的 %s 时间周期K线数据", 
+			symbol, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339), interval),
 	})
 }

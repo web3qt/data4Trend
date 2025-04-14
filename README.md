@@ -2,17 +2,18 @@
 
 ## 项目概述
 
-Web3QT 数据馈送系统是一个高性能的加密货币市场数据收集和处理系统，专为量化交易应用设计。系统从Binance交易所实时获取K线数据，经过处理后存储到MySQL数据库，并提供API接口供其他应用程序访问。
+Web3QT 数据馈送系统是一个高性能的加密货币市场数据收集和处理系统，专为量化交易应用设计。系统自动获取市值前200的加密货币，从Binance交易所实时获取K线数据，经过处理后存储到MySQL数据库，并提供API接口供其他应用程序访问。
 
 ## 功能特性
 
-- **多交易对支持**：支持同时收集多个加密货币交易对的K线数据
-- **多时间周期**：支持1分钟、5分钟、15分钟、1小时、4小时、1天等多种时间周期
-- **分组管理**：通过配置文件对交易对进行分组管理，设置不同的优先级和数据收集策略
+- **市值前200排名**：自动获取并跟踪市值排名前200的加密货币
+- **多交易对支持**：同时收集多个加密货币交易对的K线数据
+- **三种时间周期**：支持15分钟、4小时、1天三种关键时间周期
 - **历史数据回填**：支持从指定时间点开始回填历史数据
 - **数据清洗**：对原始数据进行验证和清洗，确保数据质量
 - **实时API**：提供RESTful API和WebSocket接口，支持实时数据查询和推送
 - **数据完整性检查**：提供工具检测和修复数据缺口
+- **数据删除功能**：支持删除指定时间范围内的数据
 - **容器化部署**：支持Docker和docker-compose快速部署
 
 ## 系统架构
@@ -40,7 +41,7 @@ Web3QT 数据馈送系统是一个高性能的加密货币市场数据收集和�
 
 ### 核心组件
 
-- **DataCollector**：负责从Binance API获取K线数据，支持多交易对和多时间周期并行收集
+- **DataCollector**：负责从Binance API获取K线数据，自动获取市值前200的加密货币
 - **DataProcessor**：对收集到的数据进行清洗和验证，确保数据质量
 - **MySQL存储**：将处理后的数据存储到MySQL数据库，按交易对和时间周期组织
 - **API服务器**：提供RESTful API和WebSocket接口，支持数据查询和实时推送
@@ -58,8 +59,8 @@ Web3QT 数据馈送系统是一个高性能的加密货币市场数据收集和�
 
 ```bash
 # 克隆代码库
-git clone https://github.com/web3qt/dataFeeder.git
-cd dataFeeder
+git clone https://github.com/web3qt/data4Trend.git
+cd data4Trend
 
 # 安装依赖
 go mod download
@@ -107,7 +108,7 @@ docker run -d \
   -e MYSQL_PORT=3306 \
   -e MYSQL_USER=root \
   -e MYSQL_PASSWORD=123456 \
-  -e MYSQL_DATABASE=kline_data \
+  -e MYSQL_DATABASE=data4trend \
   -p 8080:8080 \
   --name datafeeder \
   data-feeder
@@ -139,7 +140,7 @@ mysql:
   port: 3306
   user: "root"
   password: "123456"
-  database: "kline_data"
+  database: "data4trend"
 
 server:
   port: 8080
@@ -161,26 +162,31 @@ log:
 ### 交易对配置 (symbols.yaml)
 
 ```yaml
-# 币种分组配置
+# 币种配置
 groups:
-  # 主要交易对（高优先级，完整数据）
-  primary:
-    symbols:
-      - BTCUSDT
-      - ETHUSDT
-    intervals: ["1m", "5m", "15m", "1h", "4h", "1d"]
+  # 主交易对组
+  main:
+    symbols: []  # 将由程序自动获取前200个市值最大的币种
+    intervals: ["15m", "4h", "1d"]  # 仅支持这三个时间周期
     start_times:
-      minute: "2023-03-01T00:00:00Z"
+      minute: "2023-01-01T00:00:00Z"
       hour: "2023-01-01T00:00:00Z"
-      day: "2022-01-01T00:00:00Z"
+      day: "2023-01-01T00:00:00Z"
     enabled: true
     poll_intervals:
-      "1m": 1m
-      "5m": 5m
       "15m": 15m
-      "1h": 1h
       "4h": 4h
       "1d": 24h
+
+# 全局设置
+settings:
+  max_symbols_per_batch: 20 # 每批处理的最大币种数
+  discovery_enabled: false # 是否启用自动发现新币种
+  discovery_interval: 24h # 自动发现新币种的间隔
+  excluded_symbols: # 排除的币种
+    - USDCUSDT
+    - BUSDUSDT
+    - TUSDUSDT
 ```
 
 ## API接口
@@ -198,7 +204,7 @@ GET /api/v1/klines?symbol=BTCUSDT&interval=15m&limit=100&start_time=167252760000
 参数说明：
 
 - `symbol`: 交易对名称（必填）
-- `interval`: 时间周期，如1m, 5m, 15m, 1h, 4h, 1d（必填）
+- `interval`: 时间周期，如15m, 4h, 1d（必填）
 - `limit`: 返回的数据点数量，默认500，最大1000
 - `start_time`: 开始时间戳（毫秒）
 - `end_time`: 结束时间戳（毫秒）
@@ -222,7 +228,7 @@ GET /api/v1/klines?symbol=BTCUSDT&interval=15m&limit=100&start_time=167252760000
 #### 获取多交易对K线数据
 
 ```
-GET /api/v1/multi_klines?symbols=BTCUSDT,ETHUSDT&interval=1h&limit=10
+GET /api/v1/multi_klines?symbols=BTCUSDT,ETHUSDT&interval=4h&limit=10
 ```
 
 #### 获取支持的交易对列表
@@ -234,8 +240,22 @@ GET /api/v1/symbols
 #### 检查数据缺口
 
 ```
-GET /api/v1/check_gaps?symbol=BTCUSDT&interval=1h&start_time=1672527600000&end_time=1672614000000
+GET /api/v1/check_gaps?symbol=BTCUSDT&interval=1d&start_time=1672527600000&end_time=1672614000000
 ```
+
+#### 删除指定时间范围内的数据
+
+```
+DELETE /api/v1/klines?symbol=BTCUSDT&interval=4h&start_time=2023-01-01T00:00:00Z&end_time=2023-01-31T23:59:59Z&confirm=true
+```
+
+参数说明：
+
+- `symbol`: 交易对名称（必填）
+- `interval`: 时间周期，仅支持 15m, 4h, 1d（必填）
+- `start_time`: 开始时间，ISO8601格式（必填）
+- `end_time`: 结束时间，ISO8601格式（必填）
+- `confirm`: 必须设为true才会执行删除操作（必填）
 
 ### WebSocket API
 
@@ -251,17 +271,18 @@ ws://localhost:8080/api/v1/ws
 {
   "action": "subscribe",
   "symbol": "BTCUSDT",
-  "interval": "1m"
+  "interval": "15m"
 }
 ```
 
 ## 数据流程
 
-1. DataCollector从Binance API获取K线数据
-2. 数据通过管道传输到DataProcessor进行清洗
-3. 清洗后的数据存储到MySQL数据库
-4. API服务器从数据库读取数据并提供给客户端
-5. 新数据通过WebSocket实时推送给订阅的客户端
+1. DataCollector从Binance API获取市值排名前200的加密货币列表
+2. DataCollector从Binance API获取K线数据
+3. 数据通过管道传输到DataProcessor进行清洗
+4. 清洗后的数据存储到MySQL数据库
+5. API服务器从数据库读取数据并提供给客户端
+6. 新数据通过WebSocket实时推送给订阅的客户端
 
 ## 工具和脚本
 

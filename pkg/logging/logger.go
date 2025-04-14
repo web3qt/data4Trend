@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/sirupsen/logrus"
-	"github.com/web3qt/dataFeeder/config"
+	"github.com/web3qt/data4Trend/config"
 )
 
 // Logger 是全局日志对象，使用Entry类型以支持WithFields方法

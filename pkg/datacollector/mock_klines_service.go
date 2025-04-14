@@ -8,7 +8,7 @@ import (
 	"context"
 
 	"github.com/stretchr/testify/mock"
-	"github.com/web3qt/dataFeeder/internal/types"
+	"github.com/web3qt/data4Trend/internal/types"
 )
 
 // MockKlinesService is a mock of KlinesService interface.

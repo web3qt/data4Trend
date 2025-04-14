@@ -9,10 +9,10 @@ import (
 
 	binance "github.com/adshao/go-binance/v2"
 	"github.com/sirupsen/logrus"
-	"github.com/web3qt/dataFeeder/config"
-	"github.com/web3qt/dataFeeder/internal/types"
-	"github.com/web3qt/dataFeeder/internal/utils"
-	"github.com/web3qt/dataFeeder/pkg/logging"
+	"github.com/web3qt/data4Trend/config"
+	"github.com/web3qt/data4Trend/internal/types"
+	"github.com/web3qt/data4Trend/internal/utils"
+	"github.com/web3qt/data4Trend/pkg/logging"
 )
 
 // BinanceKlinesService 适配器
@@ -1085,4 +1085,55 @@ func (b *BinanceCollector) fetchHistoricalData(ctx context.Context, symbol, inte
 		EndTime(endTime.UnixMilli()).
 		Limit(1000).
 		Do(ctx)
+}
+
+// FetchTopCryptocurrencies 获取前N个市值最大的加密货币
+func (b *BinanceCollector) FetchTopCryptocurrencies(ctx context.Context, limit int) ([]string, error) {
+	logging.Logger.WithField("limit", limit).Info("获取前N个市值最大的加密货币")
+	
+	// 获取所有交易对信息 - 不使用，因为我们直接用24小时交易量
+	_, err := b.Client.NewExchangeInfoService().Do(ctx)
+	if err != nil {
+		logging.Logger.WithError(err).Error("获取交易所信息失败")
+		return nil, err
+	}
+	
+	// 获取24小时价格变动信息，包含市值信息
+	tickers, err := b.Client.NewListPriceChangeStatsService().Do(ctx)
+	if err != nil {
+		logging.Logger.WithError(err).Error("获取24小时价格变动信息失败")
+		return nil, err
+	}
+	
+	// 过滤USDT交易对并排序
+	usdtPairs := make([]*binance.PriceChangeStats, 0)
+	for _, ticker := range tickers {
+		if strings.HasSuffix(ticker.Symbol, "USDT") {
+			usdtPairs = append(usdtPairs, ticker)
+		}
+	}
+	
+	// 按交易量排序（使用交易量作为市值的代理指标）
+	sort.Slice(usdtPairs, func(i, j int) bool {
+		// 按交易量（QuoteVolume）降序排序
+		return usdtPairs[i].QuoteVolume > usdtPairs[j].QuoteVolume
+	})
+	
+	// 取前N个交易对
+	count := limit
+	if count > len(usdtPairs) {
+		count = len(usdtPairs)
+	}
+	
+	result := make([]string, count)
+	for i := 0; i < count; i++ {
+		result[i] = usdtPairs[i].Symbol
+	}
+	
+	logging.Logger.WithFields(logrus.Fields{
+		"requested": limit,
+		"found":     count,
+	}).Info("已获取前N个市值最大的加密货币")
+	
+	return result, nil
 }

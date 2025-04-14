@@ -10,13 +10,13 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/web3qt/dataFeeder/config"
-	"github.com/web3qt/dataFeeder/internal/types"
-	"github.com/web3qt/dataFeeder/pkg/apiserver"
-	"github.com/web3qt/dataFeeder/pkg/datacollector"
-	"github.com/web3qt/dataFeeder/pkg/dataprocessor"
-	"github.com/web3qt/dataFeeder/pkg/datastore"
-	"github.com/web3qt/dataFeeder/pkg/logging"
+	"github.com/web3qt/data4Trend/config"
+	"github.com/web3qt/data4Trend/internal/types"
+	"github.com/web3qt/data4Trend/pkg/apiserver"
+	"github.com/web3qt/data4Trend/pkg/datacollector"
+	"github.com/web3qt/data4Trend/pkg/dataprocessor"
+	"github.com/web3qt/data4Trend/pkg/datastore"
+	"github.com/web3qt/data4Trend/pkg/logging"
 )
 
 func main() {
@@ -62,26 +62,6 @@ func main() {
 		"user":     cfg.MySQL.User,
 		"database": cfg.MySQL.Database,
 	}).Info("MySQL配置")
-
-	// 获取交易对配置
-	symbolConfigs, err := cfg.GetAllSymbols()
-	if err != nil {
-		logging.Logger.WithError(err).Warn("获取交易对配置失败，使用主配置中的交易对")
-		symbolConfigs = cfg.Binance.Symbols
-	}
-
-	logging.Logger.WithField("count", len(symbolConfigs)).Info("已配置交易对数量")
-	for i, s := range symbolConfigs {
-		if i < 10 { // 只打印前10个，避免输出过多
-			logging.Logger.WithFields(logrus.Fields{
-				"index":        i + 1,
-				"symbol":       s.Symbol,
-				"minute_start": s.MinuteStart,
-				"hourly_start": s.HourlyStart,
-				"daily_start":  s.DailyStart,
-			}).Debug("交易对配置")
-		}
-	}
 
 	mysqlCfg := &datastore.MySQLConfig{
 		Host:     cfg.MySQL.Host,
@@ -227,36 +207,52 @@ func main() {
 		}
 	}()
 
-	// 启动数据处理流水线
-	go func() {
-		logging.Logger.Info("正在启动数据收集器...")
-		if err := collector.Start(ctx); err != nil {
-			logging.Logger.WithError(err).Error("启动数据收集器失败")
-			// 不直接终止程序，只记录错误
-			return
+	// 获取前200个市值最大的加密货币
+	topCryptos, err := collector.FetchTopCryptocurrencies(ctx, 200)
+	if err != nil {
+		logging.Logger.WithError(err).Warn("获取前200个市值最大的加密货币失败，将使用配置中的币种")
+	} else {
+		logging.Logger.WithField("count", len(topCryptos)).Info("成功获取前N个市值最大的加密货币")
+		
+		// 获取符号管理器
+		symbolManager, err := cfg.GetSymbolManager()
+		if err != nil {
+			logging.Logger.WithError(err).Warn("无法获取符号管理器")
+		} else {
+			// 更新主组的符号列表
+			mainGroup := symbolManager.GetGroup("main")
+			if mainGroup != nil {
+				// 设置获取到的交易对
+				mainGroup.Symbols = topCryptos
+				
+				// 确保时间周期仅包含15m、4h和1d
+				mainGroup.Intervals = []string{"15m", "4h", "1d"}
+				
+				// 更新轮询间隔
+				mainGroup.PollIntervals = map[string]string{
+					"15m": "15m",
+					"4h":  "4h",
+					"1d":  "24h",
+				}
+				
+				logging.Logger.WithFields(logrus.Fields{
+					"symbols_count": len(mainGroup.Symbols),
+					"intervals":     mainGroup.Intervals,
+				}).Info("已更新主交易对组配置")
+			}
 		}
-		logging.Logger.Info("数据收集器启动成功")
-	}()
-	go cleaner.Start(ctx)
-	go store.Start(ctx)
+	}
 
-	// 启动API服务
+	// 启动各组件
 	go func() {
-		logging.Logger.Info("正在启动API服务...")
 		if err := server.Start(ctx); err != nil {
-			logging.Logger.WithError(err).Error("API服务启动失败")
-			// 不直接终止程序，只记录错误
-			return
+			logging.Logger.WithError(err).Fatal("启动API服务器失败")
 		}
-		logging.Logger.Info("API服务启动成功")
 	}()
 
-	logging.Logger.Info("数据服务已启动，监听端口:", *portFlag)
-	logging.Logger.Info("-----------------------------")
-	logging.Logger.Info("  数据采集服务已成功启动")
-	logging.Logger.WithField("endpoint", fmt.Sprintf("http://localhost:%d/api/v1", *portFlag)).Info("API 端点")
-	logging.Logger.WithField("endpoint", fmt.Sprintf("ws://localhost:%d/api/v1/ws", *portFlag)).Info("WebSocket 端点")
-	logging.Logger.Info("-----------------------------")
+	go store.Start(ctx)
+	go cleaner.Start(ctx)
+	go collector.Start(ctx)
 
 	// 等待中断信号
 	waitForInterrupt(ctx, cancel)
