@@ -19,7 +19,7 @@ type KLineData struct {
 
 func main() {
 	// 连接数据库
-	db, err := sql.Open("mysql", "root:123456@tcp(localhost:3306)/kline_data?parseTime=true")
+	db, err := sql.Open("mysql", "root:123456@tcp(localhost:3306)/data4trend?parseTime=true")
 	if err != nil {
 		log.Fatalf("连接数据库失败: %v", err)
 	}

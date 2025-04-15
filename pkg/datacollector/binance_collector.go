@@ -2,6 +2,8 @@ package datacollector
 
 import (
 	"context"
+	"fmt"
+	"math/rand"
 	"sort"
 	"strings"
 	"sync"
@@ -147,8 +149,8 @@ func NewBinanceCollector(cfg *config.Config) *BinanceCollector {
 	}
 	client.HTTPClient = cfg.NewHTTPClient()
 
-	// 默认使用10个工作器
-	workers := 10
+	// 减少工作器数量，避免同时发出太多请求
+	workers := 3
 
 	// 记录配置
 	logging.Logger.WithFields(logrus.Fields{
@@ -165,7 +167,7 @@ func NewBinanceCollector(cfg *config.Config) *BinanceCollector {
 		config:       cfg,
 		workers:      workers,
 		workerPool:   make(chan struct{}, workers),
-		taskQueue:    make(chan CollectionTask, 2000), // 增加任务队列容量
+		taskQueue:    make(chan CollectionTask, 500), // 减小任务队列容量以控制内存使用
 		lastSaveHour: -1,                              // 初始化为-1
 	}
 }
@@ -325,182 +327,174 @@ func (b *BinanceCollector) startWithSymbols(ctx context.Context, symbols []confi
 	return nil
 }
 
-// worker 工作器从任务队列中取出任务并执行
+// worker 处理收集任务的工作器
 func (b *BinanceCollector) worker(ctx context.Context) {
 	for {
+		// 获取一个工作器槽位
 		select {
 		case <-ctx.Done():
 			return
-		case task := <-b.taskQueue:
-			// 获取工作槽
-			b.workerPool <- struct{}{}
+		case b.workerPool <- struct{}{}:
+			// 获取到一个工作器槽位，继续处理
+		}
 
-			// 执行任务
-			b.executeTask(ctx, task)
+		// 获取任务
+		var task CollectionTask
+		select {
+		case <-ctx.Done():
+			// 取消上下文，退出工作器
+			<-b.workerPool // 释放槽位
+			return
+		case task = <-b.taskQueue:
+			// 获取到一个任务，处理它
+		}
 
-			// 释放工作槽
-			<-b.workerPool
+		// 执行任务
+		b.executeTask(ctx, task)
+
+		// 释放工作器槽位
+		<-b.workerPool
+
+		// 添加请求间隔，避免API请求过于频繁
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(500 * time.Millisecond): // 每个任务之间至少间隔500毫秒
+			// 继续下一个任务
 		}
 	}
 }
 
-// executeTask 执行单个收集任务
+// executeTask 执行数据收集任务
 func (b *BinanceCollector) executeTask(ctx context.Context, task CollectionTask) {
-	// 创建超时上下文
-	taskCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
+	symbol := task.Symbol
+	interval := task.Interval
+	startTime := task.StartTime
+	endTime := task.EndTime
 
 	logging.Logger.WithFields(logrus.Fields{
-		"symbol":     task.Symbol,
-		"interval":   task.Interval,
-		"start_time": task.StartTime.Format(time.RFC3339),
-		"end_time":   task.EndTime.Format(time.RFC3339),
-	}).Debug("执行收集任务")
+		"symbol":     symbol,
+		"interval":   interval,
+		"start_time": startTime.Format(time.RFC3339),
+		"end_time":   endTime.Format(time.RFC3339),
+	}).Debug("执行K线数据收集任务")
 
-	// 创建新的Kline服务
-	service := NewBinanceKlinesService(b.Client)
-
-	// 限制每个请求的数据点数量
-	const maxDataPoints = 1000
-	currentStart := task.StartTime
-
-	for currentStart.Before(task.EndTime) {
-		// 计算最大结束时间
-		maxEnd := currentStart.Add(time.Duration(maxDataPoints) * calculateIntervalDuration(task.Interval))
-		if maxEnd.After(task.EndTime) {
-			maxEnd = task.EndTime
+	// 计算最大持续时间
+	maxDuration := b.getMaxDurationForInterval(interval)
+	
+	// 限制单次请求的时间范围，分批获取数据
+	currentStart := startTime
+	for currentStart.Before(endTime) {
+		// 计算当前批次的结束时间
+		currentEnd := currentStart.Add(maxDuration)
+		if currentEnd.After(endTime) {
+			currentEnd = endTime
+		}
+		
+		// 如果时间段小于一个K线周期，跳过
+		intervalDuration := calculateIntervalDuration(interval)
+		if currentEnd.Sub(currentStart) < intervalDuration {
+			break
 		}
 
-		// 启动Klines查询
-		klines, err := service.Symbol(task.Symbol).
-			Interval(task.Interval).
-			StartTime(currentStart.UnixMilli()).
-			EndTime(maxEnd.UnixMilli()).
-			Limit(maxDataPoints).
-			Do(taskCtx)
+		// 创建Binance K线服务
+		service := NewBinanceKlinesService(b.Client)
 
+		// 设置K线服务参数
+		service.Symbol(symbol).
+			Interval(interval).
+			StartTime(currentStart.UnixMilli()).
+			EndTime(currentEnd.UnixMilli()).
+			Limit(1000) // 使用最大限制以减少API调用次数
+
+		// 执行K线数据获取
+		klines, err := service.Do(ctx)
+		
+		// 处理错误
 		if err != nil {
 			logging.Logger.WithFields(logrus.Fields{
-				"symbol":     task.Symbol,
-				"interval":   task.Interval,
-				"start_time": currentStart.Format(time.RFC3339),
-				"end_time":   maxEnd.Format(time.RFC3339),
+				"symbol":     symbol,
+				"interval":   interval,
+				"start_time": currentStart,
+				"end_time":   currentEnd,
 				"error":      err,
-			}).Error("收集K线数据失败")
-
-			// 检查是否被限流
-			if strings.Contains(err.Error(), "429") || strings.Contains(err.Error(), "418") {
-				logging.Logger.Warn("被Binance限流，暂停10秒")
-				time.Sleep(10 * time.Second)
+			}).Error("获取K线数据失败")
+			
+			// 检查是否是API限流错误
+			if strings.Contains(err.Error(), "Too many requests") || 
+			   strings.Contains(err.Error(), "rate limit") {
+				logging.Logger.Warn("检测到API限流，暂停请求10秒")
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(10 * time.Second):
+					// 继续尝试
+					continue
+				}
 			}
-			return
-		}
-
-		// 检查是否获取到数据
-		if len(klines) == 0 {
-			logging.Logger.WithFields(logrus.Fields{
-				"symbol":     task.Symbol,
-				"interval":   task.Interval,
-				"start_time": currentStart.Format(time.RFC3339),
-				"end_time":   maxEnd.Format(time.RFC3339),
-			}).Warn("未获取到K线数据")
-
-			// 如果是新的收集任务，可能是没有数据，更新收集时间并退出
-			if currentStart.Equal(task.StartTime) {
-				b.updateCollectorStartTime(task.Symbol, task.Interval, maxEnd)
-			}
-
-			// 移动到下一个时间段
-			currentStart = maxEnd
-			continue
-		}
-
-		// 处理收集到的数据
-		processedCount := 0
-		var lastKlineTime time.Time
-
-		// 确保K线按时间排序
-		sort.Slice(klines, func(i, j int) bool {
-			return klines[i].OpenTime.Before(klines[j].OpenTime)
-		})
-
-		// 根据间隔类型生成标准的K线开始时间
-		for i, kline := range klines {
-			// 计算标准化的开始时间（对齐到标准时间间隔）
-			standardOpenTime := normalizeKlineOpenTime(kline.OpenTime, task.Interval)
-
-			// 确保K线开始时间是标准化的
-			if !kline.OpenTime.Equal(standardOpenTime) {
-				// 记录异常时间不标准的K线数据
-				logging.Logger.WithFields(logrus.Fields{
-					"symbol":           task.Symbol,
-					"interval":         task.Interval,
-					"actual_open_time": kline.OpenTime.Format(time.RFC3339),
-					"standard_time":    standardOpenTime.Format(time.RFC3339),
-				}).Warn("K线开始时间不标准，将进行校正")
-
-				// 校正开始时间和结束时间
-				klines[i].OpenTime = standardOpenTime
-				klines[i].CloseTime = standardOpenTime.Add(calculateIntervalDuration(task.Interval) - time.Millisecond)
-			}
-
-			// 发送数据到输出通道
+			
+			// 其他错误，暂停一段时间后继续
 			select {
-			case b.DataChan <- kline:
-				processedCount++
-				lastKlineTime = kline.OpenTime
-			case <-taskCtx.Done():
-				logging.Logger.WithFields(logrus.Fields{
-					"symbol":   task.Symbol,
-					"interval": task.Interval,
-				}).Warn("任务上下文取消")
+			case <-ctx.Done():
 				return
+			case <-time.After(2 * time.Second):
+				// 继续下一个时间段
+				currentStart = currentEnd
+				continue
 			}
 		}
 
-		// 更新收集器的开始时间，使用最后一个K线的时间加上一个周期
-		if lastKlineTime.After(time.Time{}) {
-			// 计算下一个周期的开始时间
-			nextStartTime := lastKlineTime.Add(calculateIntervalDuration(task.Interval))
-
-			logging.Logger.WithFields(logrus.Fields{
-				"symbol":            task.Symbol,
-				"interval":          task.Interval,
-				"last_kline_time":   lastKlineTime.Format(time.RFC3339),
-				"next_start_time":   nextStartTime.Format(time.RFC3339),
-				"processed_count":   processedCount,
-				"interval_duration": calculateIntervalDuration(task.Interval).String(),
-			}).Info("任务完成，更新收集器时间")
-
-			// 确保下一个开始时间是通过标准化时间计算的
-			nextStandardTime := normalizeKlineOpenTime(nextStartTime, task.Interval)
-			if !nextStartTime.Equal(nextStandardTime) {
-				logging.Logger.WithFields(logrus.Fields{
-					"symbol":       task.Symbol,
-					"interval":     task.Interval,
-					"calculated":   nextStartTime.Format(time.RFC3339),
-					"standardized": nextStandardTime.Format(time.RFC3339),
-				}).Warn("下一个开始时间不标准，进行校正")
-				nextStartTime = nextStandardTime
-			}
-
-			b.updateCollectorStartTime(task.Symbol, task.Interval, nextStartTime)
-		}
-
-		// 移动到下一个时间范围
+		// 处理获取到的K线数据
 		if len(klines) > 0 {
-			lastKline := klines[len(klines)-1]
-			// 确保下一次获取数据的时间是标准化的时间点
-			nextTime := lastKline.OpenTime.Add(calculateIntervalDuration(task.Interval))
-			nextStandardTime := normalizeKlineOpenTime(nextTime, task.Interval)
-			currentStart = nextStandardTime
+			logging.Logger.WithFields(logrus.Fields{
+				"symbol":      symbol,
+				"interval":    interval,
+				"start_time":  currentStart,
+				"end_time":    currentEnd,
+				"data_points": len(klines),
+			}).Debug("成功获取K线数据")
+
+			// 检查并填补数据缺口
+			if len(klines) > 1 {
+				intervalDuration := calculateIntervalDuration(interval)
+				b.checkAndFillGaps(ctx, symbol, interval, klines, intervalDuration)
+			}
+
+			// 发送数据到通道
+			for _, kline := range klines {
+				select {
+				case <-ctx.Done():
+					return
+				case b.DataChan <- kline:
+					// 数据发送成功
+				}
+			}
+
+			// 更新收集器的起始时间
+			if len(klines) > 0 {
+				lastKline := klines[len(klines)-1]
+				// 更新为最后一个K线的关闭时间加1毫秒
+				newTime := lastKline.CloseTime.Add(time.Millisecond)
+				b.updateCollectorStartTime(symbol, interval, newTime)
+			}
 		} else {
-			currentStart = maxEnd
+			logging.Logger.WithFields(logrus.Fields{
+				"symbol":    symbol,
+				"interval":  interval,
+				"start":     currentStart,
+				"end":       currentEnd,
+			}).Debug("时间范围内没有K线数据")
 		}
 
-		// 检查是否达到结束时间
-		if currentStart.After(task.EndTime) || currentStart.Equal(task.EndTime) {
-			break
+		// 移动到下一个时间段
+		currentStart = currentEnd
+		
+		// 添加请求间隔，避免API请求过于频繁
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(200 * time.Millisecond): // 每个批次之间至少间隔200毫秒
+			// 继续下一个批次
 		}
 	}
 }
@@ -694,51 +688,152 @@ func (b *BinanceCollector) getMaxDurationForInterval(interval string) time.Durat
 	}
 }
 
-// scheduler 任务调度器，按优先级排序任务
+// scheduler 周期性调度收集任务
 func (b *BinanceCollector) scheduler(ctx context.Context) {
-	// 实现简单的调度逻辑
-	logging.Logger.Info("启动任务调度器")
-
-	// 任务计数
-	taskCount := 0
-	lastTaskCount := 0
-	lastTaskTime := time.Now()
-
-	// 每秒检查一次任务队列
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(10 * time.Second) // 每10秒检查一次需要执行的任务
 	defer ticker.Stop()
 
-	// 每分钟打印一次汇总统计
-	statsTicker := time.NewTicker(1 * time.Minute)
-	defer statsTicker.Stop()
+	// 保存收集进度的定时器
+	saveProgressTicker := time.NewTicker(15 * time.Minute)
+	defer saveProgressTicker.Stop()
+
+	// 任务计数器，用于限制每次迭代中添加的任务数量
+	var tasksAdded int
+	var lastTaskTime time.Time
+
+	logging.Logger.Info("任务调度器已启动")
 
 	for {
 		select {
 		case <-ctx.Done():
+			logging.Logger.Info("任务调度器收到停止信号")
 			return
+			
+		case <-saveProgressTicker.C:
+			// 每15分钟保存一次进度
+			b.saveProgress()
+			
 		case <-ticker.C:
-			// 统计任务队列长度
-			queueLen := len(b.taskQueue)
-			if queueLen > 0 {
-				taskCount += queueLen
-				logging.Logger.WithField("current_length", queueLen).WithField("total_tasks", taskCount).Info("任务队列状态")
+			// 重置计数器
+			tasksAdded = 0
+			symbols := b.GetActiveSymbols()
+			
+			logging.Logger.WithField("count", len(symbols)).Debug("正在为活跃币种调度任务")
+			
+			// 随机打乱符号列表，避免总是按同一顺序处理
+			rand.Shuffle(len(symbols), func(i, j int) {
+				symbols[i], symbols[j] = symbols[j], symbols[i]
+			})
+			
+			// 限制每次处理的符号数量
+			maxSymbolsPerCycle := 10
+			if len(symbols) > maxSymbolsPerCycle {
+				symbols = symbols[:maxSymbolsPerCycle]
 			}
-		case <-statsTicker.C:
-			// 检查是否一分钟内没有生成任务
-			if taskCount == lastTaskCount {
-				logging.Logger.Warn("过去一分钟内没有生成新任务，任务队列可能停滞")
-			} else {
-				tasksPerMinute := taskCount - lastTaskCount
-				logging.Logger.WithField("tasks_per_minute", tasksPerMinute).WithField("current_length", len(b.taskQueue)).Info("调度器统计")
-				// 每5分钟检查一次数据通道
-				elapsed := time.Since(lastTaskTime).Minutes()
-				if elapsed >= 5 {
-					logging.Logger.WithField("buffer_capacity", cap(b.DataChan)).WithField("current_length", len(b.DataChan)).Info("数据通道状态")
-					lastTaskTime = time.Now()
+
+			// 为每个活跃的币种调度任务
+			for _, symbol := range symbols {
+				b.CollectorsMu.RLock()
+				intervals, ok := b.Collectors[symbol]
+				b.CollectorsMu.RUnlock()
+
+				if !ok {
+					continue
+				}
+
+				// 对每个间隔检查是否需要调度任务
+				for interval, collector := range intervals {
+					// 跳过已禁用的收集器
+					if !collector.IsEnabled() {
+						continue
+					}
+
+					// 获取上次收集的时间
+					lastCollect := collector.GetLastCollect()
+					
+					// 跳过最近才收集过的间隔
+					pollInterval := collector.GetPollInterval()
+					if time.Since(lastCollect) < pollInterval {
+						continue
+					}
+
+					// 计算开始和结束时间
+					now := time.Now()
+					startTime := collector.GetStartTime()
+					
+					// 如果开始时间为零，使用配置的初始时间
+					if startTime.IsZero() {
+						startTime = collector.GetInitialStartTime()
+					}
+					
+					// 限制单次任务的时间范围
+					maxDuration := b.getMaxDurationForInterval(interval)
+					endTime := startTime.Add(maxDuration)
+					if endTime.After(now) {
+						endTime = now
+					}
+					
+					// 如果开始时间和结束时间相同或开始时间晚于结束时间，跳过
+					if startTime.Equal(endTime) || startTime.After(endTime) {
+						continue
+					}
+
+					// 创建并添加任务
+					task := CollectionTask{
+						Symbol:    symbol,
+						Interval:  interval,
+						StartTime: startTime,
+						EndTime:   endTime,
+						Priority:  collector.GetPriority(),
+					}
+					
+					// 限制任务添加频率
+					if tasksAdded > 0 && time.Since(lastTaskTime) < 100*time.Millisecond {
+						// 添加小延迟，避免短时间内添加太多任务
+						time.Sleep(100 * time.Millisecond)
+					}
+					
+					// 更新收集器的上次收集时间
+					collector.UpdateLastCollect()
+					
+					// 添加任务到队列
+					select {
+					case <-ctx.Done():
+						return
+					case b.taskQueue <- task:
+						tasksAdded++
+						lastTaskTime = time.Now()
+						
+						logging.Logger.WithFields(logrus.Fields{
+							"symbol":     symbol,
+							"interval":   interval,
+							"start_time": startTime,
+							"end_time":   endTime,
+						}).Debug("已调度K线数据收集任务")
+					default:
+						// 任务队列已满，跳过
+						logging.Logger.WithFields(logrus.Fields{
+							"symbol":   symbol,
+							"interval": interval,
+						}).Warn("任务队列已满，跳过任务")
+					}
+					
+					// 每添加几个任务后暂停一下，避免短时间内添加太多任务
+					if tasksAdded%5 == 0 {
+						select {
+						case <-ctx.Done():
+							return
+						case <-time.After(500 * time.Millisecond):
+							// 继续添加任务
+						}
+					}
 				}
 			}
-			// 更新最后的任务计数
-			lastTaskCount = taskCount
+			
+			// 记录本次调度的任务数量
+			if tasksAdded > 0 {
+				logging.Logger.WithField("tasks_added", tasksAdded).Info("已调度任务")
+			}
 		}
 	}
 }
@@ -1091,11 +1186,27 @@ func (b *BinanceCollector) fetchHistoricalData(ctx context.Context, symbol, inte
 func (b *BinanceCollector) FetchTopCryptocurrencies(ctx context.Context, limit int) ([]string, error) {
 	logging.Logger.WithField("limit", limit).Info("获取前N个市值最大的加密货币")
 	
-	// 获取所有交易对信息 - 不使用，因为我们直接用24小时交易量
-	_, err := b.Client.NewExchangeInfoService().Do(ctx)
-	if err != nil {
-		logging.Logger.WithError(err).Error("获取交易所信息失败")
-		return nil, err
+	// 检查是否有API密钥
+	apiKey := b.config.Binance.APIKey
+	secretKey := b.config.Binance.SecretKey
+	
+	if apiKey == "" || secretKey == "" {
+		logging.Logger.Info("API密钥未设置，将使用默认币种列表")
+		// 使用常见交易对作为默认列表
+		defaultSymbols := []string{
+			"BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", 
+			"DOGEUSDT", "SOLUSDT", "DOTUSDT", "MATICUSDT", "LTCUSDT",
+			"AVAXUSDT", "LINKUSDT", "ATOMUSDT", "UNIUSDT", "ETCUSDT",
+			"TRXUSDT", "XLMUSDT", "VETUSDT", "ICPUSDT", "FILUSDT",
+			"THETAUSDT", "XMRUSDT", "FTMUSDT", "ALGOUSDT", "HBARUSDT",
+			"AAVEUSDT", "EGLDUSDT", "AXSUSDT", "NEARUSDT", "EOSUSDT",
+		}
+		
+		// 如果默认列表长度小于limit，返回整个列表
+		if limit <= len(defaultSymbols) {
+			return defaultSymbols[:limit], nil
+		}
+		return defaultSymbols, nil
 	}
 	
 	// 获取24小时价格变动信息，包含市值信息
@@ -1105,6 +1216,8 @@ func (b *BinanceCollector) FetchTopCryptocurrencies(ctx context.Context, limit i
 		return nil, err
 	}
 	
+	logging.Logger.WithField("tickers_count", len(tickers)).Info("成功获取到交易对信息")
+	
 	// 过滤USDT交易对并排序
 	usdtPairs := make([]*binance.PriceChangeStats, 0)
 	for _, ticker := range tickers {
@@ -1112,6 +1225,8 @@ func (b *BinanceCollector) FetchTopCryptocurrencies(ctx context.Context, limit i
 			usdtPairs = append(usdtPairs, ticker)
 		}
 	}
+	
+	logging.Logger.WithField("usdt_pairs_count", len(usdtPairs)).Info("过滤出USDT交易对数量")
 	
 	// 按交易量排序（使用交易量作为市值的代理指标）
 	sort.Slice(usdtPairs, func(i, j int) bool {
@@ -1128,12 +1243,118 @@ func (b *BinanceCollector) FetchTopCryptocurrencies(ctx context.Context, limit i
 	result := make([]string, count)
 	for i := 0; i < count; i++ {
 		result[i] = usdtPairs[i].Symbol
+		logging.Logger.WithFields(logrus.Fields{
+			"rank": i+1,
+			"symbol": usdtPairs[i].Symbol,
+			"volume": usdtPairs[i].QuoteVolume,
+		}).Info("排名靠前的交易对")
+	}
+	
+	// 确保BTC和ETH在列表中
+	hasBTC := false
+	hasETH := false
+	
+	for _, symbol := range result {
+		if symbol == "BTCUSDT" {
+			hasBTC = true
+		}
+		if symbol == "ETHUSDT" {
+			hasETH = true
+		}
+	}
+	
+	// 如果没有BTC或ETH，手动添加它们
+	if !hasBTC {
+		logging.Logger.Info("手动添加BTCUSDT到列表")
+		result = append(result, "BTCUSDT")
+	}
+	
+	if !hasETH {
+		logging.Logger.Info("手动添加ETHUSDT到列表")
+		result = append(result, "ETHUSDT")
 	}
 	
 	logging.Logger.WithFields(logrus.Fields{
 		"requested": limit,
-		"found":     count,
+		"found":     len(result),
 	}).Info("已获取前N个市值最大的加密货币")
 	
+	// 记录获取到的所有符号
+	logging.Logger.WithField("symbols", strings.Join(result[:min(20, len(result))], ",")).Info("前20个交易对列表")
+	
 	return result, nil
+}
+
+// min 返回两个int中较小的一个
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// ReloadSymbolConfig 重新加载符号配置
+func (b *BinanceCollector) ReloadSymbolConfig() error {
+	logging.Logger.Info("重新加载币种配置到收集器")
+	
+	// 获取符号管理器
+	symbolManager, err := b.config.GetSymbolManager()
+	if err != nil {
+		return fmt.Errorf("获取符号管理器失败: %w", err)
+	}
+	
+	// 获取所有启用的符号
+	symbols := symbolManager.GetAllSymbols()
+	if len(symbols) == 0 {
+		return fmt.Errorf("未找到任何启用的币种")
+	}
+	
+	logging.Logger.WithField("count", len(symbols)).Info("重新加载到的币种数量")
+	
+	// 清除现有的收集器
+	b.CollectorsMu.Lock()
+	b.Collectors = make(map[string]map[string]*SymbolCollector)
+	b.CollectorsMu.Unlock()
+	
+	// 跟踪已添加的符号，避免重复添加
+	addedSymbols := make(map[string]bool)
+	
+	// 为每个符号创建新的收集器
+	for _, sym := range symbols {
+		// 跳过禁用的符号
+		if !sym.Enabled {
+			continue
+		}
+		
+		// 跳过已添加的符号
+		if addedSymbols[sym.Symbol] {
+			logging.Logger.WithField("symbol", sym.Symbol).Debug("跳过已添加的币种")
+			continue
+		}
+		
+		logging.Logger.WithFields(logrus.Fields{
+			"symbol":    sym.Symbol,
+			"intervals": sym.Intervals,
+		}).Info("为币种创建收集器")
+		
+		// 创建收集器
+		err := b.AddSymbol(sym)
+		if err != nil {
+			logging.Logger.WithFields(logrus.Fields{
+				"symbol": sym.Symbol,
+				"error":  err,
+			}).Error("添加币种失败")
+			continue
+		}
+		
+		// 标记为已添加
+		addedSymbols[sym.Symbol] = true
+	}
+	
+	logging.Logger.WithField("added_symbols", len(addedSymbols)).Info("成功添加的币种数量")
+	
+	// 调度任务
+	go b.scheduler(context.Background())
+	
+	return nil
 }

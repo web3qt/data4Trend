@@ -7,11 +7,13 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: 123456
       MYSQL_DATABASE: data4trend
+      MYSQL_USER: user
+      MYSQL_PASSWORD: user123
     ports:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --max_connections=1000
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p123456"]
       interval: 5s
@@ -33,8 +35,11 @@ services:
       - MYSQL_USER=root
       - MYSQL_PASSWORD=123456
       - MYSQL_DATABASE=data4trend
+      - BINANCE_API_KEY=
+      - BINANCE_SECRET_KEY=
     volumes:
       - ./config:/app/config
+      - ./logs:/app/logs
 
 volumes:
   mysql_data:

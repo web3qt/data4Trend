@@ -228,18 +228,49 @@ func main() {
 				// 确保时间周期仅包含15m、4h和1d
 				mainGroup.Intervals = []string{"15m", "4h", "1d"}
 				
-				// 更新轮询间隔
+				// 更新轮询间隔 - 设置更合理的时间间隔以避免被限流
 				mainGroup.PollIntervals = map[string]string{
 					"15m": "15m",
 					"4h":  "4h",
 					"1d":  "24h",
 				}
 				
-				logging.Logger.WithFields(logrus.Fields{
-					"symbols_count": len(mainGroup.Symbols),
-					"intervals":     mainGroup.Intervals,
-				}).Info("已更新主交易对组配置")
+				// 保存更新后的配置到文件
+				if err := symbolManager.SaveConfig(); err != nil {
+					logging.Logger.WithError(err).Warn("保存币种配置失败")
+				} else {
+					logging.Logger.Info("已成功保存更新的币种配置")
+				}
+				
+				// 重新加载配置到收集器
+				if err := collector.ReloadSymbolConfig(); err != nil {
+					logging.Logger.WithError(err).Warn("重新加载币种配置到收集器失败")
+				} else {
+					logging.Logger.WithFields(logrus.Fields{
+						"symbols_count": len(mainGroup.Symbols),
+						"intervals":     mainGroup.Intervals,
+					}).Info("已更新主交易对组配置并重新加载到收集器")
+				}
 			}
+		}
+	}
+	
+	// 直接添加常见交易对到收集器，确保至少有这些币种被收集
+	commonSymbols := []string{"BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT", "SOLUSDT", "DOTUSDT", "MATICUSDT", "LTCUSDT"}
+	for _, symbol := range commonSymbols {
+		symConfig := config.SymbolConfig{
+			Symbol:      symbol,
+			Enabled:     true,
+			Intervals:   []string{"15m", "4h", "1d"},
+			DailyStart:  "2023-10-01T00:00:00Z",
+			HourlyStart: "2023-10-01T00:00:00Z",
+			MinuteStart: "2023-10-01T00:00:00Z",
+		}
+		
+		if err := collector.AddSymbol(symConfig); err != nil {
+			logging.Logger.WithError(err).WithField("symbol", symbol).Warn("添加币种到收集器失败")
+		} else {
+			logging.Logger.WithField("symbol", symbol).Info("成功添加币种到收集器")
 		}
 	}
 

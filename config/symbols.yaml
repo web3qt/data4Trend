@@ -2,23 +2,23 @@
 groups:
   # 主交易对组
   main:
-    symbols: []  # 将由程序自动获取前200个市值最大的币种
+    symbols: ["BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT", "SOLUSDT", "DOTUSDT", "MATICUSDT", "LTCUSDT"]  # 手动添加常见交易对
     intervals: ["15m", "4h", "1d"]  # 仅支持这三个时间周期
     start_times:
-      minute: "2023-01-01T00:00:00Z"
-      hour: "2023-01-01T00:00:00Z"
-      day: "2023-01-01T00:00:00Z"
+      minute: "2023-10-01T00:00:00Z"
+      hour: "2023-10-01T00:00:00Z"
+      day: "2023-10-01T00:00:00Z"
     enabled: true
     poll_intervals:
-      "15m": 15m
-      "4h": 4h
-      "1d": 24h
+      "15m": 2m  # 每2分钟轮询一次15分钟数据
+      "4h": 5m   # 每5分钟轮询一次4小时数据
+      "1d": 10m  # 每10分钟轮询一次日数据
 
 # 全局设置
 settings:
-  max_symbols_per_batch: 20 # 每批处理的最大币种数
-  discovery_enabled: false # 是否启用自动发现新币种
-  discovery_interval: 24h # 自动发现新币种的间隔
+  max_symbols_per_batch: 30  # 每批处理的币种数，增加到30个
+  discovery_enabled: true # 启用自动发现新币种
+  discovery_interval: 6h # 缩短自动发现新币种的间隔
   excluded_symbols: # 排除的币种
     - USDCUSDT
     - BUSDUSDT

@@ -53,7 +53,7 @@ func main() {
 			Port:     3306,
 			User:     "root",
 			Password: "123456",
-			Database: "kline_data",
+			Database: "data4trend",
 		},
 		HTTP: struct {
 			Timeout int    `yaml:"timeout"`

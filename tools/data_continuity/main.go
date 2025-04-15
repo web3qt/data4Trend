@@ -47,7 +47,7 @@ func main() {
 			END as symbol
 			FROM information_schema.tables 
 			WHERE table_schema = DATABASE() 
-			AND table_name NOT IN ('connection_test', 'kline', 'kline_data', 'system_log', 'trade_data')
+			AND table_name NOT IN ('connection_test', 'kline', 'data4trend', 'system_log', 'trade_data')
 		) as symbols)
 	`).Pluck("table_name", &tables)
 

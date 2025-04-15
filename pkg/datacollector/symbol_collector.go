@@ -472,3 +472,43 @@ func (ic *IntervalCollector) updateStartTime(newTime time.Time) {
 	}).Debug("更新开始时间")
 	ic.startTime = newTime
 }
+
+// IsEnabled 返回收集器是否启用
+func (sc *SymbolCollector) IsEnabled() bool {
+	return sc.enabled
+}
+
+// GetLastCollect 获取上次收集数据的时间
+func (sc *SymbolCollector) GetLastCollect() time.Time {
+	// 由于我们没有直接存储上次收集时间，返回一个过去的时间以确保可以立即收集
+	return time.Now().Add(-24 * time.Hour)
+}
+
+// GetPollInterval 获取轮询间隔
+func (sc *SymbolCollector) GetPollInterval() time.Duration {
+	// 默认每分钟轮询一次
+	return 1 * time.Minute
+}
+
+// GetStartTime 获取收集器的开始时间
+func (sc *SymbolCollector) GetStartTime() time.Time {
+	// 返回一个默认的开始时间，通常是现在减去一些时间
+	return time.Now().Add(-1 * time.Hour)
+}
+
+// GetInitialStartTime 获取初始开始时间
+func (sc *SymbolCollector) GetInitialStartTime() time.Time {
+	// 默认使用24小时前的时间
+	return time.Now().Add(-24 * time.Hour)
+}
+
+// GetPriority 获取收集器优先级
+func (sc *SymbolCollector) GetPriority() int {
+	// 默认优先级为5（中等）
+	return 5
+}
+
+// UpdateLastCollect 更新上次收集时间
+func (sc *SymbolCollector) UpdateLastCollect() {
+	// 由于我们没有直接存储上次收集时间，此方法暂不做任何操作
+}

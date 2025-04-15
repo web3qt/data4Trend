@@ -1,13 +1,18 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
+	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"gopkg.in/yaml.v3"
+	"github.com/adshao/go-binance/v2"
 )
 
 // SymbolPriority 定义币种优先级
@@ -334,8 +339,138 @@ func (m *SymbolManager) runDiscovery() {
 
 // discoverNewSymbols 发现新币种
 func (m *SymbolManager) discoverNewSymbols() {
-	// TODO: 实现从Binance API获取所有交易对
-	log.Printf("自动发现新币种功能尚未实现")
+	log.Printf("开始自动发现新币种")
+	
+	// 检查是否有"main"分组
+	mainGroup, exists := m.config.Groups["main"]
+	if !exists {
+		log.Printf("无法找到'main'分组，无法自动发现新币种")
+		return
+	}
+	
+	// 创建一个临时的BinanceClient
+	apiKey := m.binanceConfig.APIKey
+	secretKey := m.binanceConfig.SecretKey
+	
+	var result []string
+	
+	if apiKey == "" || secretKey == "" {
+		log.Printf("API密钥未设置，将使用默认币种列表进行更新")
+		// 使用常见交易对作为默认列表
+		result = []string{
+			"BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT",
+			"DOGEUSDT", "SOLUSDT", "DOTUSDT", "MATICUSDT", "LTCUSDT",
+			"AVAXUSDT", "LINKUSDT", "ATOMUSDT", "UNIUSDT", "ETCUSDT",
+			"TRXUSDT", "XLMUSDT", "VETUSDT", "ICPUSDT", "FILUSDT",
+			"THETAUSDT", "XMRUSDT", "FTMUSDT", "ALGOUSDT", "HBARUSDT",
+		}
+	} else {
+		// 有API密钥，使用Binance API获取
+		client := binance.NewClient(apiKey, secretKey)
+		
+		// 获取前200个市值最大的币种
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		
+		// 获取24小时价格变动信息，包含市值信息
+		tickers, err := client.NewListPriceChangeStatsService().Do(ctx)
+		if err != nil {
+			log.Printf("获取24小时价格变动信息失败: %v", err)
+			return
+		}
+		
+		log.Printf("成功获取到 %d 个交易对信息", len(tickers))
+		
+		// 过滤USDT交易对并排序
+		usdtPairs := make([]*binance.PriceChangeStats, 0)
+		for _, ticker := range tickers {
+			if strings.HasSuffix(ticker.Symbol, "USDT") {
+				usdtPairs = append(usdtPairs, ticker)
+			}
+		}
+		
+		log.Printf("过滤出 %d 个USDT交易对", len(usdtPairs))
+		
+		// 按交易量排序（使用交易量作为市值的代理指标）
+		sort.Slice(usdtPairs, func(i, j int) bool {
+			// 按交易量（QuoteVolume）降序排序
+			vi, _ := strconv.ParseFloat(usdtPairs[i].QuoteVolume, 64)
+			vj, _ := strconv.ParseFloat(usdtPairs[j].QuoteVolume, 64)
+			return vi > vj
+		})
+		
+		// 取前200个交易对
+		count := 200
+		if count > len(usdtPairs) {
+			count = len(usdtPairs)
+		}
+		
+		result = make([]string, count)
+		for i := 0; i < count; i++ {
+			result[i] = usdtPairs[i].Symbol
+		}
+	}
+	
+	// 检查是否需要更新
+	needsUpdate := false
+	
+	// 比较现有符号和新获取的符号
+	existingSymbols := make(map[string]bool)
+	for _, s := range mainGroup.Symbols {
+		existingSymbols[s] = true
+	}
+	
+	newSymbols := make([]string, 0)
+	for _, s := range result {
+		if !existingSymbols[s] && !contains(m.config.Settings.ExcludedSymbols, s) {
+			newSymbols = append(newSymbols, s)
+			needsUpdate = true
+		}
+	}
+	
+	if !needsUpdate {
+		log.Printf("没有发现新的币种，无需更新")
+		return
+	}
+	
+	// 更新符号列表
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	
+	// 再次检查mainGroup是否存在，因为在获取锁之前可能已经改变
+	mainGroup, exists = m.config.Groups["main"]
+	if !exists {
+		log.Printf("锁定后无法找到'main'分组")
+		return
+	}
+	
+	// 合并新旧符号列表（确保不会重复添加）
+	updatedSymbols := mainGroup.Symbols
+	for _, s := range result {
+		if !contains(updatedSymbols, s) && !contains(m.config.Settings.ExcludedSymbols, s) {
+			updatedSymbols = append(updatedSymbols, s)
+		}
+	}
+	
+	// 确保至少有BTC和ETH
+	if !contains(updatedSymbols, "BTCUSDT") {
+		updatedSymbols = append(updatedSymbols, "BTCUSDT")
+	}
+	if !contains(updatedSymbols, "ETHUSDT") {
+		updatedSymbols = append(updatedSymbols, "ETHUSDT")
+	}
+	
+	// 更新分组
+	mainGroup.Symbols = updatedSymbols
+	m.config.Groups["main"] = mainGroup
+	
+	// 保存配置
+	if err := m.SaveConfig(); err != nil {
+		log.Printf("保存更新的币种配置失败: %v", err)
+		return
+	}
+	
+	log.Printf("自动发现完成，更新了 %d 个新币种，总共 %d 个币种", len(newSymbols), len(updatedSymbols))
 }
 
 // contains 检查字符串是否在切片中

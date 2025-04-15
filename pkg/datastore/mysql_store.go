@@ -152,17 +152,30 @@ func NewMySQLStore(cfg *MySQLConfig, input <-chan *types.KLineData) (*MySQLStore
 
 	logging.Logger.Info("MySQL连接池配置成功")
 
-	// 尝试创建一个临时表来验证连接
-	testSQL := `
+	// 测试数据库连接
+	createTableSQL := `
 CREATE TABLE IF NOT EXISTS connection_test (
     id INT PRIMARY KEY,
-    test_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-INSERT INTO connection_test (id) VALUES (1) ON DUPLICATE KEY UPDATE test_time = CURRENT_TIMESTAMP;
-SELECT * FROM connection_test;
-`
+    test_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);`
+
+	insertSQL := `INSERT INTO connection_test (id) VALUES (1) ON DUPLICATE KEY UPDATE test_time = CURRENT_TIMESTAMP;`
+	
+	selectSQL := `SELECT * FROM connection_test;`
+	
+	// 分别执行SQL语句
+	if err := db.Exec(createTableSQL).Error; err != nil {
+		logging.Logger.WithError(err).Warn("创建测试表失败")
+		// 不返回错误，继续执行
+	}
+	
+	if err := db.Exec(insertSQL).Error; err != nil {
+		logging.Logger.WithError(err).Warn("插入测试数据失败")
+		// 不返回错误，继续执行
+	}
+	
 	var testResult []map[string]interface{}
-	if err := db.Raw(testSQL).Find(&testResult).Error; err != nil {
+	if err := db.Raw(selectSQL).Find(&testResult).Error; err != nil {
 		logging.Logger.WithError(err).Warn("MySQL测试失败")
 		// 不返回错误，继续执行
 	} else {
