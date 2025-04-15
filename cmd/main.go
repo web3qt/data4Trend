@@ -24,16 +24,23 @@ func main() {
 	portFlag := flag.Int("port", 8080, "API服务器端口号")
 	flag.Parse()
 
+	fmt.Println("===============================================")
+	fmt.Println("  数据采集服务正在启动 - 调试模式")
+	fmt.Println("===============================================")
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	// 初始化配置
 	// 加载配置
+	fmt.Println("正在加载配置...")
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		// 初始化前需要使用标准日志
 		logFatal("加载配置失败: %v", err)
 	}
+	fmt.Printf("配置加载成功，数据库: %s, API密钥设置: %v\n", 
+		cfg.MySQL.Database, cfg.Binance.APIKey != "")
 
 	// 初始化日志
 	logging.InitLogger(&cfg.Log)
@@ -208,66 +215,61 @@ func main() {
 	}()
 
 	// 获取前100个市值最大的加密货币
+	fmt.Println("正在获取前100个市值最大的币种...")
 	topCryptos, err := collector.FetchTopCryptocurrencies(ctx, 100)
 	if err != nil {
 		logging.Logger.WithError(err).Error("获取前100个市值最大的加密货币失败")
+		fmt.Printf("获取币种失败: %v\n", err)
+		// 使用备用币种列表
+		topCryptos = []string{
+			"BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", 
+			"DOGEUSDT", "SOLUSDT", "DOTUSDT", "MATICUSDT", "LTCUSDT"}
+		fmt.Println("将使用备用币种列表继续运行")
+	}
+	
+	logging.Logger.WithField("count", len(topCryptos)).Info("成功获取的加密货币数量")
+	fmt.Printf("成功准备了%d个币种\n", len(topCryptos))
+	
+	// 直接使用获取到的交易对启动收集器
+	// 创建适合的时间间隔配置
+	symbols := make([]config.SymbolConfig, 0, len(topCryptos))
+	for _, symbol := range topCryptos {
+		cfg := config.SymbolConfig{
+			Symbol:    symbol,
+			Enabled:   true,
+			Intervals: []string{"15m", "4h", "1d"}, // 使用指定的时间周期
+		}
+		symbols = append(symbols, cfg)
+	}
+	
+	// 使用获取到的交易对启动收集器
+	fmt.Println("正在启动收集器...")
+	if err := collector.StartWithSymbols(ctx, symbols); err != nil {
+		logging.Logger.WithError(err).Error("启动收集器失败")
+		fmt.Printf("启动收集器失败: %v\n", err)
 		return
-	} else {
-		logging.Logger.WithField("count", len(topCryptos)).Info("成功获取前100个市值最大的加密货币")
-		
-		// 直接使用获取到的交易对启动收集器
-		// 创建适合的时间间隔配置
-		symbols := make([]config.SymbolConfig, 0, len(topCryptos))
-		for _, symbol := range topCryptos {
-			cfg := config.SymbolConfig{
-				Symbol:    symbol,
-				Enabled:   true,
-				Intervals: []string{"15m", "4h", "1d"}, // 使用指定的时间周期
-			}
-			symbols = append(symbols, cfg)
-		}
-		
-		// 使用获取到的交易对启动收集器
-		if err := collector.StartWithSymbols(ctx, symbols); err != nil {
-			logging.Logger.WithError(err).Error("启动收集器失败")
-			return
-		}
-		
-		logging.Logger.Info("成功启动收集器")
 	}
-
-	// 直接添加常见交易对到收集器，确保至少有这些币种被收集
-	commonSymbols := []string{"BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT", "SOLUSDT", "DOTUSDT", "MATICUSDT", "LTCUSDT"}
-	for _, symbol := range commonSymbols {
-		symConfig := config.SymbolConfig{
-			Symbol:      symbol,
-			Enabled:     true,
-			Intervals:   []string{"15m", "4h", "1d"},
-			DailyStart:  "2023-10-01T00:00:00Z",
-			HourlyStart: "2023-10-01T00:00:00Z",
-			MinuteStart: "2023-10-01T00:00:00Z",
-		}
-		
-		if err := collector.AddSymbol(symConfig); err != nil {
-			logging.Logger.WithError(err).WithField("symbol", symbol).Warn("添加币种到收集器失败")
-		} else {
-			logging.Logger.WithField("symbol", symbol).Info("成功添加币种到收集器")
-		}
-	}
+	
+	logging.Logger.Info("成功启动收集器")
+	fmt.Println("收集器启动成功!")
 
 	// 启动各组件
-	go func() {
-		if err := server.Start(ctx); err != nil {
-			logging.Logger.WithError(err).Fatal("启动API服务器失败")
-		}
-	}()
-
+	logging.Logger.Info("启动API服务器...")
+	go server.Start(ctx)
+	logging.Logger.Info("启动数据存储...")
 	go store.Start(ctx)
+	logging.Logger.Info("启动数据清洗器...")
 	go cleaner.Start(ctx)
+	logging.Logger.Info("启动数据收集器...")
 	go collector.Start(ctx)
 
-	// 等待中断信号
+	// 等待程序被中断
 	waitForInterrupt(ctx, cancel)
+	
+	// 优雅地关闭资源
+	logging.Logger.Info("正在关闭服务...")
+	
+	logging.Logger.Info("数据采集服务已关闭")
 }
 
 // waitForInterrupt 等待中断信号并执行优雅关闭

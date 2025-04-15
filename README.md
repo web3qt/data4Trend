@@ -1,12 +1,13 @@
-# Web3QT 数据馈送系统
+# Data4Trend 数据馈送系统
 
 ## 项目概述
 
-Web3QT 数据馈送系统是一个高性能的加密货币市场数据收集和处理系统，专为量化交易应用设计。系统自动获取市值前200的加密货币，从Binance交易所实时获取K线数据，经过处理后存储到MySQL数据库，并提供API接口供其他应用程序访问。
+Data4Trend 数据馈送系统是一个高性能的加密货币市场数据收集和处理系统，专为量化交易应用设计。系统自动获取市值前100的加密货币，从Binance交易所实时获取K线数据，经过处理后存储到MySQL数据库，并提供API接口供其他应用程序访问。
 
 ## 功能特性
 
-- **市值前200排名**：自动获取并跟踪市值排名前200的加密货币
+- **市值前100排名**：自动获取并跟踪市值排名前100的加密货币
+- **环境变量配置**：通过环境变量配置Binance API密钥，增强安全性
 - **多交易对支持**：同时收集多个加密货币交易对的K线数据
 - **三种时间周期**：支持15分钟、4小时、1天三种关键时间周期
 - **历史数据回填**：支持从指定时间点开始回填历史数据
@@ -41,9 +42,9 @@ Web3QT 数据馈送系统是一个高性能的加密货币市场数据收集和�
 
 ### 核心组件
 
-- **DataCollector**：负责从Binance API获取K线数据，自动获取市值前200的加密货币
+- **DataCollector**：负责从Binance API获取K线数据，自动获取市值前100的加密货币
 - **DataProcessor**：对收集到的数据进行清洗和验证，确保数据质量
-- **MySQL存储**：将处理后的数据存储到MySQL数据库，按交易对和时间周期组织
+- **MySQL存储**：将处理后的数据存储到MySQL数据库，按交易对分表存储
 - **API服务器**：提供RESTful API和WebSocket接口，支持数据查询和实时推送
 
 ## 环境要求
@@ -76,15 +77,43 @@ go build -o dataFeeder cmd/main.go
 ./setup_mysql.sh
 ```
 
-### 运行服务
+### 环境变量配置
+
+系统通过环境变量读取敏感配置信息。您可以设置以下环境变量：
 
 ```bash
-# 设置环境变量（可选）
+# 设置Binance API密钥（可选）
 export BINANCE_API_KEY="your_api_key"
 export BINANCE_SECRET_KEY="your_secret_key"
 
-# 运行服务
+# 数据库配置（可选，如果与默认值不同）
+export MYSQL_HOST="localhost"
+export MYSQL_PORT="3306"
+export MYSQL_USER="root"
+export MYSQL_PASSWORD="123456"
+export MYSQL_DATABASE="data4trend"
+```
+
+### 运行服务
+
+```bash
+# 直接运行
 ./dataFeeder
+
+# 或者使用提供的脚本
+./run.sh
+```
+
+### 数据库状态检查
+
+系统提供了工具脚本用于检查数据库状态，确认数据是否正常收集：
+
+```bash
+# 检查数据库表和记录
+go run check_db.go
+
+# 检查特定交易对（如BTC）的数据
+go run check_btc.go
 ```
 
 ### Docker部署
@@ -132,8 +161,8 @@ docker-compose logs -f
 
 ```yaml
 binance:
-  api_key: ""  # 不需要API密钥就可以获取公共K线数据
-  secret_key: ""
+  api_key: ""  # 从环境变量BINANCE_API_KEY读取
+  secret_key: ""  # 从环境变量BINANCE_SECRET_KEY读取
 
 mysql:
   host: "localhost"
@@ -154,7 +183,7 @@ http:
 symbols_config_path: "config/symbols.yaml"
 
 log:
-  level: "info"
+  level: "debug"
   json_format: false
   output_path: "logs/dataFeeder.log"
 ```
@@ -164,30 +193,32 @@ log:
 ```yaml
 # 币种配置
 groups:
-  # 主交易对组
-  main:
-    symbols: []  # 将由程序自动获取前200个市值最大的币种
-    intervals: ["15m", "4h", "1d"]  # 仅支持这三个时间周期
-    start_times:
-      minute: "2023-01-01T00:00:00Z"
-      hour: "2023-01-01T00:00:00Z"
-      day: "2023-01-01T00:00:00Z"
-    enabled: true
-    poll_intervals:
-      "15m": 15m
-      "4h": 4h
-      "1d": 24h
+  # 空组，不再使用主交易对组
 
 # 全局设置
 settings:
-  max_symbols_per_batch: 20 # 每批处理的最大币种数
-  discovery_enabled: false # 是否启用自动发现新币种
-  discovery_interval: 24h # 自动发现新币种的间隔
-  excluded_symbols: # 排除的币种
+  max_symbols_per_batch: 30  # 每批处理的币种数，增加到30个
+  discovery_enabled: true  # 启用自动发现新币种
+  discovery_interval: 6h   # 缩短自动发现新币种的间隔
+  excluded_symbols:  # 排除的币种
     - USDCUSDT
     - BUSDUSDT
     - TUSDUSDT
 ```
+
+## 数据存储结构
+
+系统为每个交易对创建单独的数据表，表名为交易对名称的小写形式（例如BTCUSDT对应表名为`btc`）。每个表包含以下字段：
+
+- `id`: 自动递增的主键
+- `interval_type`: 时间周期（15m、4h、1d）
+- `open_time`: 开盘时间
+- `close_time`: 收盘时间
+- `open_price`: 开盘价格
+- `high_price`: 最高价格
+- `low_price`: 最低价格
+- `close_price`: 收盘价格
+- `volume`: 交易量
 
 ## API接口
 
@@ -243,29 +274,35 @@ GET /api/v1/symbols
 GET /api/v1/check_gaps?symbol=BTCUSDT&interval=1d&start_time=1672527600000&end_time=1672614000000
 ```
 
+#### 修复数据缺口
+
+```
+POST /api/v1/fix_gaps
+Content-Type: application/json
+
+{
+  "symbol": "BTCUSDT",
+  "interval": "1d",
+  "start_time": "2023-01-01T00:00:00Z",
+  "end_time": "2023-01-10T00:00:00Z"
+}
+```
+
 #### 删除指定时间范围内的数据
 
 ```
 DELETE /api/v1/klines?symbol=BTCUSDT&interval=4h&start_time=2023-01-01T00:00:00Z&end_time=2023-01-31T23:59:59Z&confirm=true
 ```
 
-参数说明：
-
-- `symbol`: 交易对名称（必填）
-- `interval`: 时间周期，仅支持 15m, 4h, 1d（必填）
-- `start_time`: 开始时间，ISO8601格式（必填）
-- `end_time`: 结束时间，ISO8601格式（必填）
-- `confirm`: 必须设为true才会执行删除操作（必填）
-
 ### WebSocket API
 
-连接WebSocket：
+WebSocket接口提供实时K线数据推送：
 
 ```
-ws://localhost:8080/api/v1/ws
+GET /api/v1/ws
 ```
 
-订阅K线数据：
+连接后发送订阅消息：
 
 ```json
 {
@@ -275,87 +312,46 @@ ws://localhost:8080/api/v1/ws
 }
 ```
 
-## 数据流程
+## 故障排除
 
-1. DataCollector从Binance API获取市值排名前200的加密货币列表
-2. DataCollector从Binance API获取K线数据
-3. 数据通过管道传输到DataProcessor进行清洗
-4. 清洗后的数据存储到MySQL数据库
-5. API服务器从数据库读取数据并提供给客户端
-6. 新数据通过WebSocket实时推送给订阅的客户端
+### 无法连接到数据库
 
-## 工具和脚本
+- 检查数据库连接配置是否正确
+- 确认MySQL服务是否运行中
+- 检查数据库用户权限
 
-系统提供了多个工具和脚本用于数据管理和问题诊断：
+### 无法获取币种数据
 
-- `tools/checktables/main.go`: 检查数据库表结构
-- `tools/data_continuity/main.go`: 检查数据连续性
-- `tools/fix_data_gaps/main.go`: 修复数据缺口
-- `tools/test_binance.go`: 测试Binance API连接
-- `tools/test_connection.go`: 测试数据库连接
+- 检查网络连接，特别是对Binance API的访问
+- 如果使用HTTP代理，确认代理服务正常
+- 可能是API请求限制，等待一段时间后重试
 
-## 测试
+### 数据表为空或数据不完整
 
-### 运行测试
+使用检查脚本确认数据收集状态：
 
-1. **安装测试依赖**：
-   ```bash
-   go get -t ./...
-   ```
+```bash
+go run check_db.go
+```
 
-2. **运行所有测试**：
-   ```bash
-   go test -v ./...
-   ```
+如果看到某个币种的数据不完整，可以尝试：
 
-3. **运行特定包的测试**：
-   ```bash
-   go test -v ./pkg/datacollector
-   ```
+```bash
+# 检查特定币种（如BTC）
+go run check_btc.go
 
-4. **生成测试覆盖率报告**：
-   ```bash
-   go test -coverprofile=coverage.out ./...
-   go tool cover -html=coverage.out
-   ```
+# 删除并重新收集数据
+curl -X DELETE "http://localhost:8080/api/v1/klines?symbol=BTCUSDT&interval=4h&start_time=2023-01-01T00:00:00Z&end_time=2023-01-31T23:59:59Z&confirm=true"
+```
 
-5. **测试API**
-  ```
-  go run tools/api_test/main.go http://localhost:8080
-  ```
-### 测试类型
+## 开发扩展
 
-1. **单元测试**：
-   - 位于各个包的`_test.go`文件中
-   - 测试单个函数或方法的功能
-   - 使用mock对象隔离依赖
+开发者可以根据需要扩展系统功能：
 
-2. **API测试**：
-   - 位于`tests/api_test.go`
-   - 测试所有API端点的功能和响应
-   - 使用`httptest`包模拟HTTP请求
-
-3. **集成测试**：
-   - 位于`tests/integration_test.go`
-   - 测试多个组件的协同工作
-   - 使用测试数据库和mock外部服务
-
-
-### 持续集成
-
-测试已集成到CI/CD流程中，每次提交都会自动运行所有测试。如果测试失败，构建将中止。
-
-
-## 贡献指南
-
-欢迎提交问题报告和功能请求。如果您想贡献代码，请遵循以下步骤：
-
-1. Fork项目
-2. 创建您的特性分支 (`git checkout -b feature/amazing-feature`)
-3. 提交您的更改 (`git commit -m 'Add some amazing feature'`)
-4. 推送到分支 (`git push origin feature/amazing-feature`)
-5. 打开Pull Request
+- 在`pkg/datacollector`中修改以支持其他交易所
+- 在`pkg/dataprocessor`中添加更多数据处理逻辑
+- 在`pkg/apiserver`中扩展API功能
 
 ## 许可证
 
-本项目采用MIT许可证 - 详情请参阅LICENSE文件
+本项目采用MIT许可证 - 详情见LICENSE文件

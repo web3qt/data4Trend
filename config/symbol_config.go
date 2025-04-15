@@ -341,12 +341,35 @@ func (m *SymbolManager) runDiscovery() {
 func (m *SymbolManager) discoverNewSymbols() {
 	log.Printf("开始自动发现新币种")
 	
-	// 检查是否有"main"分组
+	// 检查是否有"main"分组，如果没有则创建
+	m.mu.Lock()
 	mainGroup, exists := m.config.Groups["main"]
 	if !exists {
-		log.Printf("无法找到'main'分组，无法自动发现新币种")
-		return
+		log.Printf("未找到'main'分组，将创建新的分组")
+		// 创建Groups映射如果不存在
+		if m.config.Groups == nil {
+			m.config.Groups = make(map[string]SymbolGroup)
+		}
+		
+		// 创建新的main分组
+		mainGroup = SymbolGroup{
+			Symbols:   []string{},
+			Intervals: []string{"15m", "4h", "1d"},
+			StartTimes: map[string]string{
+				"minute": time.Now().AddDate(0, 0, -30).Format(time.RFC3339),
+				"hour":   time.Now().AddDate(0, 0, -30).Format(time.RFC3339),
+				"day":    time.Now().AddDate(0, 0, -30).Format(time.RFC3339),
+			},
+			Enabled: true,
+			PollIntervals: map[string]string{
+				"15m": "15m",
+				"4h":  "4h",
+				"1d":  "24h",
+			},
+		}
+		m.config.Groups["main"] = mainGroup
 	}
+	m.mu.Unlock()
 	
 	// 创建一个临时的BinanceClient
 	apiKey := m.binanceConfig.APIKey
@@ -412,23 +435,22 @@ func (m *SymbolManager) discoverNewSymbols() {
 	}
 	
 	// 检查是否需要更新
-	needsUpdate := false
-	
-	// 比较现有符号和新获取的符号
+	m.mu.RLock()
+	mainGroup = m.config.Groups["main"]
 	existingSymbols := make(map[string]bool)
 	for _, s := range mainGroup.Symbols {
 		existingSymbols[s] = true
 	}
+	m.mu.RUnlock()
 	
 	newSymbols := make([]string, 0)
 	for _, s := range result {
 		if !existingSymbols[s] && !contains(m.config.Settings.ExcludedSymbols, s) {
 			newSymbols = append(newSymbols, s)
-			needsUpdate = true
 		}
 	}
 	
-	if !needsUpdate {
+	if len(newSymbols) == 0 {
 		log.Printf("没有发现新的币种，无需更新")
 		return
 	}
@@ -437,12 +459,8 @@ func (m *SymbolManager) discoverNewSymbols() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	
-	// 再次检查mainGroup是否存在，因为在获取锁之前可能已经改变
-	mainGroup, exists = m.config.Groups["main"]
-	if !exists {
-		log.Printf("锁定后无法找到'main'分组")
-		return
-	}
+	// 获取当前的main分组
+	mainGroup = m.config.Groups["main"]
 	
 	// 合并新旧符号列表（确保不会重复添加）
 	updatedSymbols := mainGroup.Symbols

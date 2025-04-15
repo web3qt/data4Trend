@@ -1185,14 +1185,27 @@ func (b *BinanceCollector) fetchHistoricalData(ctx context.Context, symbol, inte
 // FetchTopCryptocurrencies 获取前N个市值最大的加密货币
 func (b *BinanceCollector) FetchTopCryptocurrencies(ctx context.Context, limit int) ([]string, error) {
 	logging.Logger.WithField("limit", limit).Info("获取前N个市值最大的加密货币")
+	fmt.Printf("尝试获取前%d个市值排名的币种...\n", limit)
 	
 	// 直接尝试获取24小时价格变动信息，包含市值信息
 	tickers, err := b.Client.NewListPriceChangeStatsService().Do(ctx)
 	if err != nil {
 		logging.Logger.WithError(err).Error("获取24小时价格变动信息失败")
-		return nil, err
+		fmt.Printf("API调用失败: %v\n", err)
+		
+		// 使用默认列表作为备选方案
+		fmt.Println("使用备用交易对列表...")
+		defaultSymbols := []string{
+			"BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT",
+			"DOGEUSDT", "SOLUSDT", "DOTUSDT", "MATICUSDT", "LTCUSDT",
+		}
+		if limit < len(defaultSymbols) {
+			return defaultSymbols[:limit], nil
+		}
+		return defaultSymbols, nil
 	}
 	
+	fmt.Printf("成功获取到%d个交易对信息\n", len(tickers))
 	logging.Logger.WithField("tickers_count", len(tickers)).Info("成功获取到交易对信息")
 	
 	// 过滤USDT交易对并排序
@@ -1203,6 +1216,7 @@ func (b *BinanceCollector) FetchTopCryptocurrencies(ctx context.Context, limit i
 		}
 	}
 	
+	fmt.Printf("过滤出%d个USDT交易对\n", len(usdtPairs))
 	logging.Logger.WithField("usdt_pairs_count", len(usdtPairs)).Info("过滤出USDT交易对数量")
 	
 	// 按交易量排序（使用交易量作为市值的代理指标）
@@ -1251,6 +1265,7 @@ func (b *BinanceCollector) FetchTopCryptocurrencies(ctx context.Context, limit i
 		result = append(result, "ETHUSDT")
 	}
 	
+	fmt.Printf("成功获取%d个交易对\n", len(result))
 	logging.Logger.WithFields(logrus.Fields{
 		"requested": limit,
 		"found":     len(result),
