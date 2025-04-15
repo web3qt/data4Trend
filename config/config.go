@@ -120,7 +120,6 @@ func LoadConfig(path ...string) (*Config, error) {
 		configPath = path[0]
 	}
 
-	// 不再加载环境变量
 	log.Println("开始加载配置文件...")
 
 	data, err := os.ReadFile(configPath)
@@ -137,6 +136,10 @@ func LoadConfig(path ...string) (*Config, error) {
 	if err := yaml.Unmarshal([]byte(processedData), &cfg); err != nil {
 		return nil, fmt.Errorf("解析YAML配置失败: %w", err)
 	}
+
+	// 从环境变量获取Binance API密钥
+	cfg.Binance.APIKey = os.Getenv("BINANCE_API_KEY")
+	cfg.Binance.SecretKey = os.Getenv("BINANCE_SECRET_KEY")
 
 	// 确保每个交易对的配置都有默认值
 	for i := range cfg.Binance.Symbols {

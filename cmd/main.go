@@ -207,54 +207,35 @@ func main() {
 		}
 	}()
 
-	// 获取前200个市值最大的加密货币
-	topCryptos, err := collector.FetchTopCryptocurrencies(ctx, 200)
+	// 获取前100个市值最大的加密货币
+	topCryptos, err := collector.FetchTopCryptocurrencies(ctx, 100)
 	if err != nil {
-		logging.Logger.WithError(err).Warn("获取前200个市值最大的加密货币失败，将使用配置中的币种")
+		logging.Logger.WithError(err).Error("获取前100个市值最大的加密货币失败")
+		return
 	} else {
-		logging.Logger.WithField("count", len(topCryptos)).Info("成功获取前N个市值最大的加密货币")
+		logging.Logger.WithField("count", len(topCryptos)).Info("成功获取前100个市值最大的加密货币")
 		
-		// 获取符号管理器
-		symbolManager, err := cfg.GetSymbolManager()
-		if err != nil {
-			logging.Logger.WithError(err).Warn("无法获取符号管理器")
-		} else {
-			// 更新主组的符号列表
-			mainGroup := symbolManager.GetGroup("main")
-			if mainGroup != nil {
-				// 设置获取到的交易对
-				mainGroup.Symbols = topCryptos
-				
-				// 确保时间周期仅包含15m、4h和1d
-				mainGroup.Intervals = []string{"15m", "4h", "1d"}
-				
-				// 更新轮询间隔 - 设置更合理的时间间隔以避免被限流
-				mainGroup.PollIntervals = map[string]string{
-					"15m": "15m",
-					"4h":  "4h",
-					"1d":  "24h",
-				}
-				
-				// 保存更新后的配置到文件
-				if err := symbolManager.SaveConfig(); err != nil {
-					logging.Logger.WithError(err).Warn("保存币种配置失败")
-				} else {
-					logging.Logger.Info("已成功保存更新的币种配置")
-				}
-				
-				// 重新加载配置到收集器
-				if err := collector.ReloadSymbolConfig(); err != nil {
-					logging.Logger.WithError(err).Warn("重新加载币种配置到收集器失败")
-				} else {
-					logging.Logger.WithFields(logrus.Fields{
-						"symbols_count": len(mainGroup.Symbols),
-						"intervals":     mainGroup.Intervals,
-					}).Info("已更新主交易对组配置并重新加载到收集器")
-				}
+		// 直接使用获取到的交易对启动收集器
+		// 创建适合的时间间隔配置
+		symbols := make([]config.SymbolConfig, 0, len(topCryptos))
+		for _, symbol := range topCryptos {
+			cfg := config.SymbolConfig{
+				Symbol:    symbol,
+				Enabled:   true,
+				Intervals: []string{"15m", "4h", "1d"}, // 使用指定的时间周期
 			}
+			symbols = append(symbols, cfg)
 		}
+		
+		// 使用获取到的交易对启动收集器
+		if err := collector.StartWithSymbols(ctx, symbols); err != nil {
+			logging.Logger.WithError(err).Error("启动收集器失败")
+			return
+		}
+		
+		logging.Logger.Info("成功启动收集器")
 	}
-	
+
 	// 直接添加常见交易对到收集器，确保至少有这些币种被收集
 	commonSymbols := []string{"BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT", "SOLUSDT", "DOTUSDT", "MATICUSDT", "LTCUSDT"}
 	for _, symbol := range commonSymbols {

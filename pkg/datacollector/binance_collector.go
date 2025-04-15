@@ -186,7 +186,7 @@ func (b *BinanceCollector) Start(ctx context.Context) error {
 	if err != nil {
 		// 如果无法获取符号管理器，使用配置中的符号
 		logging.Logger.WithError(err).Warn("无法获取符号管理器，使用配置中的符号")
-		return b.startWithSymbols(ctx, b.config.Binance.Symbols)
+		return b.StartWithSymbols(ctx, b.config.Binance.Symbols)
 	}
 
 	// 获取所有启用的符号
@@ -231,11 +231,11 @@ func (b *BinanceCollector) Start(ctx context.Context) error {
 		symbols = append(symbols, btcSymbol)
 	}
 
-	return b.startWithSymbols(ctx, symbols)
+	return b.StartWithSymbols(ctx, symbols)
 }
 
-// startWithSymbols 使用指定的符号列表启动收集器
-func (b *BinanceCollector) startWithSymbols(ctx context.Context, symbols []config.SymbolConfig) error {
+// StartWithSymbols 使用指定的符号列表启动收集器
+func (b *BinanceCollector) StartWithSymbols(ctx context.Context, symbols []config.SymbolConfig) error {
 	logging.Logger.WithField("count", len(symbols)).Info("开始初始化Binance收集器")
 
 	// 启动任务调度器
@@ -1186,30 +1186,7 @@ func (b *BinanceCollector) fetchHistoricalData(ctx context.Context, symbol, inte
 func (b *BinanceCollector) FetchTopCryptocurrencies(ctx context.Context, limit int) ([]string, error) {
 	logging.Logger.WithField("limit", limit).Info("获取前N个市值最大的加密货币")
 	
-	// 检查是否有API密钥
-	apiKey := b.config.Binance.APIKey
-	secretKey := b.config.Binance.SecretKey
-	
-	if apiKey == "" || secretKey == "" {
-		logging.Logger.Info("API密钥未设置，将使用默认币种列表")
-		// 使用常见交易对作为默认列表
-		defaultSymbols := []string{
-			"BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", 
-			"DOGEUSDT", "SOLUSDT", "DOTUSDT", "MATICUSDT", "LTCUSDT",
-			"AVAXUSDT", "LINKUSDT", "ATOMUSDT", "UNIUSDT", "ETCUSDT",
-			"TRXUSDT", "XLMUSDT", "VETUSDT", "ICPUSDT", "FILUSDT",
-			"THETAUSDT", "XMRUSDT", "FTMUSDT", "ALGOUSDT", "HBARUSDT",
-			"AAVEUSDT", "EGLDUSDT", "AXSUSDT", "NEARUSDT", "EOSUSDT",
-		}
-		
-		// 如果默认列表长度小于limit，返回整个列表
-		if limit <= len(defaultSymbols) {
-			return defaultSymbols[:limit], nil
-		}
-		return defaultSymbols, nil
-	}
-	
-	// 获取24小时价格变动信息，包含市值信息
+	// 直接尝试获取24小时价格变动信息，包含市值信息
 	tickers, err := b.Client.NewListPriceChangeStatsService().Do(ctx)
 	if err != nil {
 		logging.Logger.WithError(err).Error("获取24小时价格变动信息失败")

@@ -1,19 +1,7 @@
 # 币种配置
 groups:
-  # 主交易对组
-  main:
-    symbols: ["BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT", "SOLUSDT", "DOTUSDT", "MATICUSDT", "LTCUSDT"]  # 手动添加常见交易对
-    intervals: ["15m", "4h", "1d"]  # 仅支持这三个时间周期
-    start_times:
-      minute: "2023-10-01T00:00:00Z"
-      hour: "2023-10-01T00:00:00Z"
-      day: "2023-10-01T00:00:00Z"
-    enabled: true
-    poll_intervals:
-      "15m": 2m  # 每2分钟轮询一次15分钟数据
-      "4h": 5m   # 每5分钟轮询一次4小时数据
-      "1d": 10m  # 每10分钟轮询一次日数据
-
+  # 空组，不再使用主交易对组
+  
 # 全局设置
 settings:
   max_symbols_per_batch: 30  # 每批处理的币种数，增加到30个
