@@ -342,33 +342,12 @@ func (m *SymbolManager) runDiscovery() {
 func (m *SymbolManager) discoverNewSymbols() {
 	log.Printf("开始自动发现新币种")
 	
-	// 首先尝试从全局设置获取开始时间
-	var startTimeRFC3339 string
-	if m.config != nil && m.config.Settings.GlobalStartTime != "" {
-		startTimeRFC3339 = m.config.Settings.GlobalStartTime
-		log.Printf("使用全局配置的开始时间: %s", startTimeRFC3339)
-	} else {
-		// 然后尝试从环境变量获取
-		startTimeStr := os.Getenv("COLLECTION_START_TIME")
-		if startTimeStr != "" {
-			// 尝试解析用户提供的开始时间
-			_, err := time.Parse(time.RFC3339, startTimeStr)
-			if err != nil {
-				log.Printf("解析开始时间失败: %v，将使用默认值（30天前）", err)
-				startTimeRFC3339 = time.Now().AddDate(0, 0, -30).Format(time.RFC3339)
-			} else {
-				startTimeRFC3339 = startTimeStr
-				log.Printf("使用环境变量指定的开始时间: %s", startTimeRFC3339)
-			}
-		} else {
-			// 默认使用30天前
-			startTimeRFC3339 = time.Now().AddDate(0, 0, -30).Format(time.RFC3339)
-			log.Printf("使用默认开始时间（30天前）: %s", startTimeRFC3339)
-		}
-	}
-	
 	// 检查是否有"main"分组，如果没有则创建
 	m.mu.Lock()
+	
+	// 使用当前时间作为默认时间
+	defaultTime := time.Now().Format(time.RFC3339)
+	
 	mainGroup, exists := m.config.Groups["main"]
 	if !exists {
 		log.Printf("未找到'main'分组，将创建新的分组")
@@ -382,9 +361,9 @@ func (m *SymbolManager) discoverNewSymbols() {
 			Symbols:   []string{},
 			Intervals: []string{"15m", "4h", "1d"},
 			StartTimes: map[string]string{
-				"minute": startTimeRFC3339,
-				"hour":   startTimeRFC3339,
-				"day":    startTimeRFC3339,
+				"minute": defaultTime,
+				"hour":   defaultTime,
+				"day":    defaultTime,
 			},
 			Enabled: true,
 			PollIntervals: map[string]string{
@@ -401,17 +380,26 @@ func (m *SymbolManager) discoverNewSymbols() {
 		}
 		// 只有在未设置时才更新开始时间
 		if _, ok := mainGroup.StartTimes["minute"]; !ok {
-			mainGroup.StartTimes["minute"] = startTimeRFC3339
+			mainGroup.StartTimes["minute"] = defaultTime
 		}
 		if _, ok := mainGroup.StartTimes["hour"]; !ok {
-			mainGroup.StartTimes["hour"] = startTimeRFC3339
+			mainGroup.StartTimes["hour"] = defaultTime
 		}
 		if _, ok := mainGroup.StartTimes["day"]; !ok {
-			mainGroup.StartTimes["day"] = startTimeRFC3339
+			mainGroup.StartTimes["day"] = defaultTime
 		}
 		m.config.Groups["main"] = mainGroup
 	}
 	m.mu.Unlock()
+	
+	// 检查binanceConfig是否为空
+	if m.binanceConfig == nil {
+		log.Printf("警告: binanceConfig未设置，将使用默认币种列表")
+		m.binanceConfig = &BinanceConfig{
+			APIKey:    "",
+			SecretKey: "",
+		}
+	}
 	
 	// 创建一个临时的BinanceClient
 	apiKey := m.binanceConfig.APIKey
@@ -441,6 +429,15 @@ func (m *SymbolManager) discoverNewSymbols() {
 		tickers, err := client.NewListPriceChangeStatsService().Do(ctx)
 		if err != nil {
 			log.Printf("获取24小时价格变动信息失败: %v", err)
+			// 使用备用列表
+			result = []string{
+				"BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT",
+				"DOGEUSDT", "SOLUSDT", "DOTUSDT", "MATICUSDT", "LTCUSDT",
+				"AVAXUSDT", "LINKUSDT", "ATOMUSDT", "UNIUSDT", "ETCUSDT",
+				"TRXUSDT", "XLMUSDT", "VETUSDT", "ICPUSDT", "FILUSDT",
+				"THETAUSDT", "XMRUSDT", "FTMUSDT", "ALGOUSDT", "HBARUSDT",
+			}
+			log.Printf("使用备用币种列表进行更新，包含%d个币种", len(result))
 			return
 		}
 		
@@ -485,6 +482,49 @@ func (m *SymbolManager) discoverNewSymbols() {
 	}
 	m.mu.RUnlock()
 	
+	// 检查现有币种数量
+	log.Printf("现有币种数量: %d", len(mainGroup.Symbols))
+	
+	// 如果现有币种少于10个，直接使用全部result
+	if len(mainGroup.Symbols) < 10 {
+		log.Printf("币种数量过少，将直接使用全部默认币种列表")
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		
+		// 确保至少有BTC和ETH，然后添加result中的所有币种
+		updatedSymbols := make([]string, 0, len(result))
+		
+		// 先放入BTC和ETH
+		updatedSymbols = append(updatedSymbols, "BTCUSDT", "ETHUSDT")
+		
+		// 添加result中的其他币种（排除已添加的和排除列表中的）
+		symbolMap := map[string]bool{
+			"BTCUSDT": true,
+			"ETHUSDT": true,
+		}
+		
+		for _, s := range result {
+			if !symbolMap[s] && !contains(m.config.Settings.ExcludedSymbols, s) {
+				updatedSymbols = append(updatedSymbols, s)
+				symbolMap[s] = true
+			}
+		}
+		
+		// 更新分组
+		mainGroup.Symbols = updatedSymbols
+		m.config.Groups["main"] = mainGroup
+		
+		// 保存配置
+		if err := m.SaveConfig(); err != nil {
+			log.Printf("保存更新的币种配置失败: %v", err)
+			return
+		}
+		
+		log.Printf("自动发现完成，总共添加 %d 个币种", len(updatedSymbols))
+		return
+	}
+	
+	// 正常流程：只添加新的币种
 	newSymbols := make([]string, 0)
 	for _, s := range result {
 		if !existingSymbols[s] && !contains(m.config.Settings.ExcludedSymbols, s) {
@@ -506,8 +546,8 @@ func (m *SymbolManager) discoverNewSymbols() {
 	
 	// 合并新旧符号列表（确保不会重复添加）
 	updatedSymbols := mainGroup.Symbols
-	for _, s := range result {
-		if !contains(updatedSymbols, s) && !contains(m.config.Settings.ExcludedSymbols, s) {
+	for _, s := range newSymbols {
+		if !contains(updatedSymbols, s) {
 			updatedSymbols = append(updatedSymbols, s)
 		}
 	}

@@ -21,43 +21,52 @@ import (
 )
 
 func main() {
-	// 检查命令行参数
-	if len(os.Args) != 2 {
-		log.Fatalf("使用方法: %s <配置文件>", os.Args[0])
+	// 默认使用config/symbols.yaml作为配置文件
+	configFile := "config/symbols.yaml"
+	
+	// 如果指定了命令行参数，则使用命令行参数作为配置文件
+	if len(os.Args) > 1 {
+		configFile = os.Args[1]
 	}
-
-	configFile := os.Args[1]
-	symbolManager, err := config.NewSymbolManager(configFile, nil)
-	if err != nil {
-		log.Fatalf("加载配置失败: %v", err)
-	}
-
-	// 设置开始时间，查找顺序：1.配置文件 2.环境变量 3.默认30天前
-	var startTimeRFC3339 string
-	// 获取main组的全局设置
-	mainGroup := symbolManager.GetGroup("main")
-	if mainGroup != nil && mainGroup.StartTimes != nil && mainGroup.StartTimes["day"] != "" {
-		// 使用main组的日期开始时间
-		startTimeRFC3339 = mainGroup.StartTimes["day"]
-		log.Printf("使用main组配置的开始时间: %s", startTimeRFC3339)
+	
+	// 检查配置文件是否存在
+	if _, err := os.Stat(configFile); os.IsNotExist(err) {
+		log.Printf("警告: 配置文件 %s 不存在，将使用默认配置", configFile)
 	} else {
-		// 然后尝试从环境变量获取
-		startTimeStr := os.Getenv("COLLECTION_START_TIME")
-		if startTimeStr != "" {
-			// 尝试解析用户提供的开始时间
-			_, err := time.Parse(time.RFC3339, startTimeStr)
-			if err != nil {
-				log.Printf("解析开始时间失败: %v，将使用默认值（30天前）", err)
-				startTimeRFC3339 = time.Now().AddDate(0, 0, -30).Format(time.RFC3339)
-			} else {
-				startTimeRFC3339 = startTimeStr
-				log.Printf("使用环境变量指定的开始时间: %s", startTimeRFC3339)
-			}
-		} else {
-			// 默认使用30天前
-			startTimeRFC3339 = time.Now().AddDate(0, 0, -30).Format(time.RFC3339)
-			log.Printf("使用默认开始时间（30天前）: %s", startTimeRFC3339)
-		}
+		log.Printf("使用配置文件: %s", configFile)
+	}
+
+	// 加载配置
+	fmt.Println("正在加载配置...")
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		// 初始化前需要使用标准日志
+		logFatal("加载配置失败: %v", err)
+	}
+	fmt.Printf("配置加载成功，数据库: %s, API密钥设置: %v\n", 
+		cfg.MySQL.Database, cfg.Binance.APIKey != "")
+
+	// 创建binanceConfig
+	binanceConfig := &config.BinanceConfig{
+		APIKey:    cfg.Binance.APIKey,
+		SecretKey: cfg.Binance.SecretKey,
+	}
+
+	// 现在传入binanceConfig
+	symbolManager, err := config.NewSymbolManager(configFile, binanceConfig)
+	if err != nil {
+		log.Fatalf("加载币种配置失败: %v", err)
+	}
+
+	// 获取main组的时间设置
+	mainGroup := symbolManager.GetGroup("main")
+	if mainGroup == nil {
+		log.Fatalf("配置文件中未找到main组")
+	}
+	
+	// 确保main组的start_times已设置
+	if mainGroup.StartTimes == nil || len(mainGroup.StartTimes) == 0 {
+		log.Fatalf("main组的start_times未设置")
 	}
 
 	// 添加命令行参数
@@ -70,17 +79,6 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	// 初始化配置
-	// 加载配置
-	fmt.Println("正在加载配置...")
-	cfg, err := config.LoadConfig()
-	if err != nil {
-		// 初始化前需要使用标准日志
-		logFatal("加载配置失败: %v", err)
-	}
-	fmt.Printf("配置加载成功，数据库: %s, API密钥设置: %v\n", 
-		cfg.MySQL.Database, cfg.Binance.APIKey != "")
 
 	// 初始化日志
 	logging.InitLogger(&cfg.Log)
@@ -263,28 +261,60 @@ func main() {
 		// 使用备用币种列表
 		topCryptos = []string{
 			"BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", 
-			"DOGEUSDT", "SOLUSDT", "DOTUSDT", "MATICUSDT", "LTCUSDT"}
+			"DOGEUSDT", "SOLUSDT", "DOTUSDT", "MATICUSDT", "LTCUSDT",
+			"AVAXUSDT", "LINKUSDT", "ATOMUSDT", "UNIUSDT", "ETCUSDT",
+			"TRXUSDT", "XLMUSDT", "VETUSDT", "ICPUSDT", "FILUSDT",
+			"THETAUSDT", "XMRUSDT", "FTMUSDT", "ALGOUSDT", "HBARUSDT"}
 		fmt.Println("将使用备用币种列表继续运行")
+	}
+	
+	// 如果获取到的交易对少于10个，使用备用列表
+	if len(topCryptos) < 10 {
+		logging.Logger.Warn("获取到的交易对数量过少，将使用备用币种列表")
+		fmt.Println("获取到的交易对数量过少，将使用备用币种列表")
+		topCryptos = []string{
+			"BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", 
+			"DOGEUSDT", "SOLUSDT", "DOTUSDT", "MATICUSDT", "LTCUSDT",
+			"AVAXUSDT", "LINKUSDT", "ATOMUSDT", "UNIUSDT", "ETCUSDT",
+			"TRXUSDT", "XLMUSDT", "VETUSDT", "ICPUSDT", "FILUSDT",
+			"THETAUSDT", "XMRUSDT", "FTMUSDT", "ALGOUSDT", "HBARUSDT"}
 	}
 	
 	logging.Logger.WithField("count", len(topCryptos)).Info("成功获取的加密货币数量")
 	fmt.Printf("成功准备了%d个币种\n", len(topCryptos))
 	
-	// 使用前面获取的startTimeRFC3339进行显示
-	fmt.Printf("将从 %s 开始收集数据\n", startTimeRFC3339)
+	// 显示main组配置的时间信息
+	fmt.Println("时间配置信息:")
+	if min, ok := mainGroup.StartTimes["minute"]; ok {
+		fmt.Printf("分钟级数据开始时间: %s\n", min)
+	}
+	if hour, ok := mainGroup.StartTimes["hour"]; ok {
+		fmt.Printf("小时级数据开始时间: %s\n", hour)
+	}
+	if day, ok := mainGroup.StartTimes["day"]; ok {
+		fmt.Printf("日级数据开始时间: %s\n", day)
+	}
 	
-	// 直接使用获取到的交易对启动收集器
-	// 创建适合的时间间隔配置
+	// 直接使用获取到的交易对和配置的时间启动收集器
 	symbols := make([]config.SymbolConfig, 0, len(topCryptos))
 	for _, symbol := range topCryptos {
 		cfg := config.SymbolConfig{
-			Symbol:      symbol,
-			Enabled:     true,
-			Intervals:   []string{"15m", "4h", "1d"}, // 使用指定的时间周期
-			MinuteStart: startTimeRFC3339,            // 设置分钟级数据的开始时间
-			HourlyStart: startTimeRFC3339,            // 设置小时级数据的开始时间
-			DailyStart:  startTimeRFC3339,            // 设置日级数据的开始时间
+			Symbol:    symbol,
+			Enabled:   true,
+			Intervals: mainGroup.Intervals,
 		}
+		
+		// 直接使用main组配置的时间
+		if min, ok := mainGroup.StartTimes["minute"]; ok {
+			cfg.MinuteStart = min
+		}
+		if hour, ok := mainGroup.StartTimes["hour"]; ok {
+			cfg.HourlyStart = hour
+		}
+		if day, ok := mainGroup.StartTimes["day"]; ok {
+			cfg.DailyStart = day
+		}
+		
 		symbols = append(symbols, cfg)
 	}
 	
