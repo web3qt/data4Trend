@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -20,6 +21,45 @@ import (
 )
 
 func main() {
+	// 检查命令行参数
+	if len(os.Args) != 2 {
+		log.Fatalf("使用方法: %s <配置文件>", os.Args[0])
+	}
+
+	configFile := os.Args[1]
+	symbolManager, err := config.NewSymbolManager(configFile, nil)
+	if err != nil {
+		log.Fatalf("加载配置失败: %v", err)
+	}
+
+	// 设置开始时间，查找顺序：1.配置文件 2.环境变量 3.默认30天前
+	var startTimeRFC3339 string
+	// 获取main组的全局设置
+	mainGroup := symbolManager.GetGroup("main")
+	if mainGroup != nil && mainGroup.StartTimes != nil && mainGroup.StartTimes["day"] != "" {
+		// 使用main组的日期开始时间
+		startTimeRFC3339 = mainGroup.StartTimes["day"]
+		log.Printf("使用main组配置的开始时间: %s", startTimeRFC3339)
+	} else {
+		// 然后尝试从环境变量获取
+		startTimeStr := os.Getenv("COLLECTION_START_TIME")
+		if startTimeStr != "" {
+			// 尝试解析用户提供的开始时间
+			_, err := time.Parse(time.RFC3339, startTimeStr)
+			if err != nil {
+				log.Printf("解析开始时间失败: %v，将使用默认值（30天前）", err)
+				startTimeRFC3339 = time.Now().AddDate(0, 0, -30).Format(time.RFC3339)
+			} else {
+				startTimeRFC3339 = startTimeStr
+				log.Printf("使用环境变量指定的开始时间: %s", startTimeRFC3339)
+			}
+		} else {
+			// 默认使用30天前
+			startTimeRFC3339 = time.Now().AddDate(0, 0, -30).Format(time.RFC3339)
+			log.Printf("使用默认开始时间（30天前）: %s", startTimeRFC3339)
+		}
+	}
+
 	// 添加命令行参数
 	portFlag := flag.Int("port", 8080, "API服务器端口号")
 	flag.Parse()
@@ -214,11 +254,11 @@ func main() {
 		}
 	}()
 
-	// 获取前100个市值最大的加密货币
-	fmt.Println("正在获取前100个市值最大的币种...")
-	topCryptos, err := collector.FetchTopCryptocurrencies(ctx, 100)
+	// 获取前200个市值最大的加密货币
+	fmt.Println("正在获取前200个市值最大的币种...")
+	topCryptos, err := collector.FetchTopCryptocurrencies(ctx, 200)
 	if err != nil {
-		logging.Logger.WithError(err).Error("获取前100个市值最大的加密货币失败")
+		logging.Logger.WithError(err).Error("获取前200个市值最大的加密货币失败")
 		fmt.Printf("获取币种失败: %v\n", err)
 		// 使用备用币种列表
 		topCryptos = []string{
@@ -230,14 +270,20 @@ func main() {
 	logging.Logger.WithField("count", len(topCryptos)).Info("成功获取的加密货币数量")
 	fmt.Printf("成功准备了%d个币种\n", len(topCryptos))
 	
+	// 使用前面获取的startTimeRFC3339进行显示
+	fmt.Printf("将从 %s 开始收集数据\n", startTimeRFC3339)
+	
 	// 直接使用获取到的交易对启动收集器
 	// 创建适合的时间间隔配置
 	symbols := make([]config.SymbolConfig, 0, len(topCryptos))
 	for _, symbol := range topCryptos {
 		cfg := config.SymbolConfig{
-			Symbol:    symbol,
-			Enabled:   true,
-			Intervals: []string{"15m", "4h", "1d"}, // 使用指定的时间周期
+			Symbol:      symbol,
+			Enabled:     true,
+			Intervals:   []string{"15m", "4h", "1d"}, // 使用指定的时间周期
+			MinuteStart: startTimeRFC3339,            // 设置分钟级数据的开始时间
+			HourlyStart: startTimeRFC3339,            // 设置小时级数据的开始时间
+			DailyStart:  startTimeRFC3339,            // 设置日级数据的开始时间
 		}
 		symbols = append(symbols, cfg)
 	}

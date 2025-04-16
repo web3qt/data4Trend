@@ -50,6 +50,7 @@ type SymbolsConfig struct {
 		DiscoveryEnabled   bool     `yaml:"discovery_enabled"`
 		DiscoveryInterval  string   `yaml:"discovery_interval"`
 		ExcludedSymbols    []string `yaml:"excluded_symbols"`
+		GlobalStartTime    string   `yaml:"global_start_time"`
 	} `yaml:"settings"`
 }
 
@@ -341,6 +342,31 @@ func (m *SymbolManager) runDiscovery() {
 func (m *SymbolManager) discoverNewSymbols() {
 	log.Printf("开始自动发现新币种")
 	
+	// 首先尝试从全局设置获取开始时间
+	var startTimeRFC3339 string
+	if m.config != nil && m.config.Settings.GlobalStartTime != "" {
+		startTimeRFC3339 = m.config.Settings.GlobalStartTime
+		log.Printf("使用全局配置的开始时间: %s", startTimeRFC3339)
+	} else {
+		// 然后尝试从环境变量获取
+		startTimeStr := os.Getenv("COLLECTION_START_TIME")
+		if startTimeStr != "" {
+			// 尝试解析用户提供的开始时间
+			_, err := time.Parse(time.RFC3339, startTimeStr)
+			if err != nil {
+				log.Printf("解析开始时间失败: %v，将使用默认值（30天前）", err)
+				startTimeRFC3339 = time.Now().AddDate(0, 0, -30).Format(time.RFC3339)
+			} else {
+				startTimeRFC3339 = startTimeStr
+				log.Printf("使用环境变量指定的开始时间: %s", startTimeRFC3339)
+			}
+		} else {
+			// 默认使用30天前
+			startTimeRFC3339 = time.Now().AddDate(0, 0, -30).Format(time.RFC3339)
+			log.Printf("使用默认开始时间（30天前）: %s", startTimeRFC3339)
+		}
+	}
+	
 	// 检查是否有"main"分组，如果没有则创建
 	m.mu.Lock()
 	mainGroup, exists := m.config.Groups["main"]
@@ -356,9 +382,9 @@ func (m *SymbolManager) discoverNewSymbols() {
 			Symbols:   []string{},
 			Intervals: []string{"15m", "4h", "1d"},
 			StartTimes: map[string]string{
-				"minute": time.Now().AddDate(0, 0, -30).Format(time.RFC3339),
-				"hour":   time.Now().AddDate(0, 0, -30).Format(time.RFC3339),
-				"day":    time.Now().AddDate(0, 0, -30).Format(time.RFC3339),
+				"minute": startTimeRFC3339,
+				"hour":   startTimeRFC3339,
+				"day":    startTimeRFC3339,
 			},
 			Enabled: true,
 			PollIntervals: map[string]string{
@@ -366,6 +392,22 @@ func (m *SymbolManager) discoverNewSymbols() {
 				"4h":  "4h",
 				"1d":  "24h",
 			},
+		}
+		m.config.Groups["main"] = mainGroup
+	} else {
+		// 如果分组已存在但没有设置开始时间，则设置
+		if mainGroup.StartTimes == nil {
+			mainGroup.StartTimes = make(map[string]string)
+		}
+		// 只有在未设置时才更新开始时间
+		if _, ok := mainGroup.StartTimes["minute"]; !ok {
+			mainGroup.StartTimes["minute"] = startTimeRFC3339
+		}
+		if _, ok := mainGroup.StartTimes["hour"]; !ok {
+			mainGroup.StartTimes["hour"] = startTimeRFC3339
+		}
+		if _, ok := mainGroup.StartTimes["day"]; !ok {
+			mainGroup.StartTimes["day"] = startTimeRFC3339
 		}
 		m.config.Groups["main"] = mainGroup
 	}

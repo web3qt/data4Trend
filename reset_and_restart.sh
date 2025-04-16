@@ -3,30 +3,44 @@
 # 设置执行权限
 chmod +x ./reset_and_restart.sh
 
-echo "正在停止所有服务..."
-docker-compose down
+echo "========================================================"
+echo "      重置数据库并重新启动Data4Trend数据采集服务        "
+echo "========================================================"
 
-echo "删除数据库数据卷..."
-docker volume rm data4trend_mysql_data || true
+# 设置数据收集开始时间（默认为2022年1月1日）
+START_TIME=${1:-"2022-01-01T00:00:00Z"}
+echo "将使用开始时间: $START_TIME"
 
-echo "启动MySQL服务..."
-docker-compose up -d mysql
+# 停止现有的服务
+echo "尝试停止现有服务..."
+pkill -f "go run cmd/main.go" || pkill -f "dataFeeder" || true
+echo "等待进程结束..."
+sleep 2
 
-echo "等待MySQL服务启动..."
-sleep 10
+# 重置数据库
+echo "重置数据库..."
+./reset_local_db.sh
 
-echo "验证MySQL服务是否已启动..."
-if ! docker-compose ps | grep -q "mysql.*Up"; then
-  echo "错误: MySQL服务未能成功启动"
-  exit 1
+# 编译应用
+echo "重新编译应用..."
+go build -o dataFeeder cmd/main.go
+
+# 设置环境变量
+export COLLECTION_START_TIME="$START_TIME"
+echo "设置数据收集开始时间: $COLLECTION_START_TIME"
+
+# 如果有API密钥，从环境文件加载
+if [ -f .env ]; then
+    echo "加载API密钥从.env文件..."
+    source .env
 fi
 
-echo "创建data4trend数据库..."
-docker-compose exec mysql mysql -uroot -p123456 -e "DROP DATABASE IF EXISTS data4trend; CREATE DATABASE data4trend CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+# 重新启动服务
+echo "启动数据服务..."
+./dataFeeder &
 
-echo "启动应用服务..."
-docker-compose up -d app
-
-echo "应用服务启动完成！"
-echo "查看应用日志:"
-echo "docker-compose logs -f app" 
+echo "服务已在后台启动"
+echo "使用以下命令检查数据库: go run check_db.go"
+echo "使用以下命令检查BTC数据: go run check_btc.go"
+echo "查看日志: tail -f logs/dataFeeder.log"
+echo "========================================================" 

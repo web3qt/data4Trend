@@ -1,6 +1,18 @@
 # 币种配置
 groups:
-  # 空组，不再使用主交易对组
+  # 主交易对组，用于自动发现的币种
+  main:
+    symbols: []  # 将由程序自动填充市值排名前200的币种
+    intervals: ["15m", "4h", "1d"]  # 支持的时间周期
+    start_times:
+      minute: "2022-01-01T00:00:00Z"  # 分钟级数据开始时间
+      hour: "2022-01-01T00:00:00Z"    # 小时级数据开始时间
+      day: "2022-01-01T00:00:00Z"     # 日级数据开始时间
+    enabled: true
+    poll_intervals:
+      "15m": "15m"
+      "4h": "4h" 
+      "1d": "24h"
   
 # 全局设置
 settings:
@@ -11,3 +23,5 @@ settings:
     - USDCUSDT
     - BUSDUSDT
     - TUSDUSDT
+  # 全局开始时间配置，适用于所有新发现的币种
+  global_start_time: "2022-01-01T00:00:00Z"  # 币种数据收集的全局开始时间

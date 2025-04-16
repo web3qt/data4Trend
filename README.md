@@ -2,12 +2,13 @@
 
 ## 项目概述
 
-Data4Trend 数据馈送系统是一个高性能的加密货币市场数据收集和处理系统，专为量化交易应用设计。系统自动获取市值前100的加密货币，从Binance交易所实时获取K线数据，经过处理后存储到MySQL数据库，并提供API接口供其他应用程序访问。
+Data4Trend 数据馈送系统是一个高性能的加密货币市场数据收集和处理系统，专为量化交易应用设计。系统自动获取市值前200的加密货币，从Binance交易所实时获取K线数据，经过处理后存储到MySQL数据库，并提供API接口供其他应用程序访问。
 
 ## 功能特性
 
-- **市值前100排名**：自动获取并跟踪市值排名前100的加密货币
+- **市值前200排名**：自动获取并跟踪市值排名前200的加密货币
 - **环境变量配置**：通过环境变量配置Binance API密钥，增强安全性
+- **自定义开始时间**：可通过环境变量指定数据收集的开始时间
 - **多交易对支持**：同时收集多个加密货币交易对的K线数据
 - **三种时间周期**：支持15分钟、4小时、1天三种关键时间周期
 - **历史数据回填**：支持从指定时间点开始回填历史数据
@@ -42,7 +43,7 @@ Data4Trend 数据馈送系统是一个高性能的加密货币市场数据收集
 
 ### 核心组件
 
-- **DataCollector**：负责从Binance API获取K线数据，自动获取市值前100的加密货币
+- **DataCollector**：负责从Binance API获取K线数据，自动获取市值前200的加密货币
 - **DataProcessor**：对收集到的数据进行清洗和验证，确保数据质量
 - **MySQL存储**：将处理后的数据存储到MySQL数据库，按交易对分表存储
 - **API服务器**：提供RESTful API和WebSocket接口，支持数据查询和实时推送
@@ -73,7 +74,10 @@ go build -o dataFeeder cmd/main.go
 ### 配置MySQL
 
 ```bash
-# 运行MySQL初始化脚本
+# 重置数据库（清空所有数据）
+./reset_local_db.sh
+
+# 或者仅初始化数据库（如果不存在）
 ./setup_mysql.sh
 ```
 
@@ -85,6 +89,9 @@ go build -o dataFeeder cmd/main.go
 # 设置Binance API密钥（可选）
 export BINANCE_API_KEY="your_api_key"
 export BINANCE_SECRET_KEY="your_secret_key"
+
+# 设置数据收集开始时间（RFC3339格式，可选，默认为30天前）
+export COLLECTION_START_TIME="2022-01-01T00:00:00Z"
 
 # 数据库配置（可选，如果与默认值不同）
 export MYSQL_HOST="localhost"
@@ -133,6 +140,7 @@ docker build \
 docker run -d \
   -e BINANCE_API_KEY="your_api_key" \
   -e BINANCE_SECRET_KEY="your_secret_key" \
+  -e COLLECTION_START_TIME="2022-01-01T00:00:00Z" \
   -e MYSQL_HOST=mysql \
   -e MYSQL_PORT=3306 \
   -e MYSQL_USER=root \
@@ -204,6 +212,21 @@ settings:
     - USDCUSDT
     - BUSDUSDT
     - TUSDUSDT
+```
+
+## 数据收集时间控制
+
+系统支持通过环境变量`COLLECTION_START_TIME`设置数据收集的开始时间。该时间应以RFC3339格式提供（例如："2022-01-01T00:00:00Z"）。
+
+- 如果未设置此环境变量，系统默认从当前时间的30天前开始收集数据
+- 设置较早的开始时间将导致系统回填更多的历史数据，这可能需要更长的处理时间
+- 对于新添加的币种，系统也会自动从指定的开始时间收集数据
+
+示例：
+```bash
+# 从2022年初开始收集数据
+export COLLECTION_START_TIME="2022-01-01T00:00:00Z"
+./dataFeeder
 ```
 
 ## 数据存储结构
