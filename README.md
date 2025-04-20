@@ -367,6 +367,12 @@ go run check_btc.go
 curl -X DELETE "http://localhost:8080/api/v1/klines?symbol=BTCUSDT&interval=4h&start_time=2023-01-01T00:00:00Z&end_time=2023-01-31T23:59:59Z&confirm=true"
 ```
 
+
+## 启动扫描系统
+```shell
+./trendScanner -config config/trend_scanner.yaml
+```
+
 ## 开发扩展
 
 开发者可以根据需要扩展系统功能：
