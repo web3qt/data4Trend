@@ -22,11 +22,29 @@ import (
 
 func main() {
 	// 默认使用config/symbols.yaml作为配置文件
-	configFile := "config/symbols.yaml"
+	var configFile string
+	var showHelp bool
 	
-	// 如果指定了命令行参数，则使用命令行参数作为配置文件
-	if len(os.Args) > 1 {
-		configFile = os.Args[1]
+	// 定义命令行参数
+	flag.StringVar(&configFile, "config", "config/symbols.yaml", "配置文件路径")
+	portFlag := flag.Int("port", 8080, "API服务器端口号")
+	enableTrendScannerFlag := flag.Bool("trend-scanner", false, "是否提示启动独立趋势扫描器")
+	flag.BoolVar(&showHelp, "help", false, "显示帮助信息")
+	flag.BoolVar(&showHelp, "h", false, "显示帮助信息 (简写)")
+	
+	// 解析命令行参数
+	flag.Parse()
+	
+	// 如果请求了帮助，显示用法并退出
+	if showHelp {
+		fmt.Println("数据采集服务 - 使用方法:")
+		flag.PrintDefaults()
+		return
+	}
+	
+	// 如果指定了配置文件作为位置参数而非标志
+	if flag.NArg() > 0 {
+		configFile = flag.Arg(0)
 	}
 	
 	// 检查配置文件是否存在
@@ -68,10 +86,6 @@ func main() {
 	if mainGroup.StartTimes == nil || len(mainGroup.StartTimes) == 0 {
 		log.Fatalf("main组的start_times未设置")
 	}
-
-	// 添加命令行参数
-	portFlag := flag.Int("port", 8080, "API服务器端口号")
-	flag.Parse()
 
 	fmt.Println("===============================================")
 	fmt.Println("  数据采集服务正在启动 - 调试模式")
@@ -338,6 +352,12 @@ func main() {
 	go cleaner.Start(ctx)
 	logging.Logger.Info("启动数据收集器...")
 	go collector.Start(ctx)
+	
+	// 不再在主程序中启动趋势扫描器，而是使用独立的趋势扫描器程序
+	if *enableTrendScannerFlag {
+		logging.Logger.Info("趋势扫描器已经被移至独立程序，请使用 ./trendScanner 启动")
+		fmt.Println("请使用 ./trendScanner 启动趋势扫描器！")
+	}
 
 	// 等待程序被中断
 	waitForInterrupt(ctx, cancel)

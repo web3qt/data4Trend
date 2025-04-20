@@ -1432,3 +1432,8 @@ func (s *MySQLStore) DeleteKLinesInTimeRange(ctx context.Context, symbol string,
 
 	return nil
 }
+
+// GetDB 获取数据库连接
+func (s *MySQLStore) GetDB() *gorm.DB {
+	return s.db
+}

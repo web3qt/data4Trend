@@ -3,7 +3,7 @@ groups:
   # 主交易对组，用于自动发现的币种
   main:
     symbols: []  # 将由程序自动填充市值排名前200的币种
-    intervals: ["15m", "4h", "1d"]  # 支持的时间周期
+    intervals: ["15m", "1h", "1d"]  # 支持的时间周期
     start_times:
       minute: "2025-01-01T00:00:00Z"  # 分钟级数据开始时间
       hour: "2025-01-01T00:00:00Z"    # 小时级数据开始时间
@@ -11,7 +11,7 @@ groups:
     enabled: true
     poll_intervals:
       "15m": "15m"
-      "4h": "4h" 
+      "1h": "1h" 
       "1d": "24h"
   
 # 全局设置

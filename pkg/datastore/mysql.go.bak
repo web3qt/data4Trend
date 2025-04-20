@@ -1,0 +1,4 @@
+// GetDB 获取数据库连接
+func (s *MySQLStore) GetDB() *sql.DB {
+	return s.db
+} 

@@ -1,0 +1,30 @@
+# 趋势扫描器配置
+
+# 数据库配置
+database:
+  host: localhost
+  port: 3306
+  user: root
+  password: 123456
+  name: data4trend
+
+# MA线配置
+ma:
+  period: 81         # MA周期，如MA81
+  interval: "15m"    # K线时间间隔
+
+# 扫描配置
+scan:
+  workers: 4                 # 工作协程数
+  interval: "1h"             # 扫描间隔时间
+  csv_output: "trend_results" # CSV输出目录
+
+# 趋势条件配置
+trend:
+  check_points:
+    - 10m    # 10分钟前 (1个15分钟K线)
+    - 30m    # 30分钟前 (2个15分钟K线)
+    - 1h     # 1小时前 (4个15分钟K线)
+    - 4h     # 4小时前 (16个15分钟K线)
+    - 1d     # 1天前 (96个15分钟K线)
+  require_strict_up: false   # 是否要求严格上升（true）或者允许平稳（false） 
