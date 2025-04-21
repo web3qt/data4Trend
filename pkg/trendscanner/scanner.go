@@ -233,7 +233,7 @@ type TrendResult struct {
 	ID           uint      `gorm:"primaryKey"`
 	Symbol       string    `gorm:"index:idx_symbol"`
 	Interval     string    `gorm:"type:varchar(10)"`
-	FoundTime    time.Time `gorm:"index:idx_found_time"`
+	FoundTime    time.Time `gorm:"index:idx_found_time"` // 发现时间，保留但不作为主要参考
 	MAPeriod     int       `gorm:"type:int"`
 	CurrentMA    float64   `gorm:"type:decimal(20,8)"`
 	MA10MinAgo   float64   `gorm:"type:decimal(20,8)"`
@@ -242,7 +242,8 @@ type TrendResult struct {
 	MA4HoursAgo  float64   `gorm:"type:decimal(20,8)"`
 	MADayAgo     float64   `gorm:"type:decimal(20,8)"`
 	ConsistentUp bool      `gorm:"type:tinyint(1)"`
-	KLineTime    time.Time `gorm:"index:idx_kline_time"`
+	KLineTime    time.Time `gorm:"index:idx_kline_time"` // K线开始时间
+	KLineEndTime time.Time `gorm:"index:idx_kline_end_time"` // K线结束时间
 	
 	CreatedAt time.Time `gorm:"autoCreateTime"`
 }
@@ -288,7 +289,13 @@ func (s *TrendScanner) scanSymbol(symbol string) *TrendResult {
 		LIMIT ?
 	`, "`"+symbol+"`") // 使用MySQL的反引号语法
 	
-	rows, err := s.db.Raw(query, s.interval, s.maPeriod*2).Rows()
+	// 计算需要的K线数据数量
+	// 假设我们需要计算当前MA和最远检查点的MA
+	// 对于MA81，如果最远检查点是1天（96个15分钟K线），则需要MA81+96=177个K线
+	maxOffset := s.getMaxCheckPointOffset()
+	requiredKLines := s.maPeriod + maxOffset
+	
+	rows, err := s.db.Raw(query, s.interval, requiredKLines).Rows()
 	if err != nil {
 		logging.Logger.WithError(err).WithField("symbol", symbol).Debug("查询K线数据失败")
 		return nil
@@ -298,6 +305,7 @@ func (s *TrendScanner) scanSymbol(symbol string) *TrendResult {
 	// 存储收盘价
 	var prices []float64
 	var times []time.Time
+	var closeTimeList []time.Time
 	
 	for rows.Next() {
 		var id int
@@ -312,6 +320,7 @@ func (s *TrendScanner) scanSymbol(symbol string) *TrendResult {
 		
 		prices = append(prices, closePrice)
 		times = append(times, openTime)
+		closeTimeList = append(closeTimeList, closeTime)
 	}
 	
 	// 数据点不足以计算MA
@@ -321,79 +330,160 @@ func (s *TrendScanner) scanSymbol(symbol string) *TrendResult {
 
 	// 记录最新K线的时间，用于记录到结果中
 	latestKLineTime := times[0]
+	latestKLineEndTime := time.Time{}
+	
+	// 获取最新K线的结束时间
+	if len(closeTimeList) > 0 {
+		latestKLineEndTime = closeTimeList[0]
+	}
+	
+	// 如果无法获取结束时间，则使用开始时间加上间隔时间估算
+	if latestKLineEndTime.IsZero() {
+		intervalDuration, err := parseIntervalDuration(s.interval)
+		if err == nil {
+			latestKLineEndTime = latestKLineTime.Add(intervalDuration)
+		} else {
+			// 无法解析间隔，使用开始时间
+			latestKLineEndTime = latestKLineTime
+		}
+	}
 	
 	// 计算当前的MA值和历史MA值
 	// 注意: prices是按照时间倒序排列的，最新的在前面
 	// 计算当前MA
 	currentMA := calculateMA(prices[:s.maPeriod])
 	
-	// 计算10分钟前的MA (1个15分钟K线)
-	ma10MinAgo := 0.0
-	if len(prices) >= s.maPeriod+1 {
-		ma10MinAgo = calculateMA(prices[1:s.maPeriod+1])
-	} else {
-		return nil
-	}
+	// 创建保存各个时间点MA值的map
+	maValues := make(map[string]float64)
+	maValues["current"] = currentMA
 	
-	// 计算30分钟前的MA (2个15分钟K线)
-	ma30MinAgo := 0.0
-	if len(prices) >= s.maPeriod+2 {
-		ma30MinAgo = calculateMA(prices[2:s.maPeriod+2])
-	} else {
-		return nil
-	}
-	
-	// 计算1小时前的MA (4个15分钟K线)
-	maHourAgo := 0.0
-	if len(prices) >= s.maPeriod+4 {
-		maHourAgo = calculateMA(prices[4:s.maPeriod+4])
-	} else {
-		return nil
-	}
-	
-	// 计算4小时前的MA (16个15分钟K线)
-	ma4HoursAgo := 0.0
-	if len(prices) >= s.maPeriod+16 {
-		ma4HoursAgo = calculateMA(prices[16:s.maPeriod+16])
-	} else {
-		return nil
-	}
-	
-	// 计算1天前的MA (96个15分钟K线)
-	maDayAgo := 0.0
-	if len(prices) >= s.maPeriod+96 {
-		maDayAgo = calculateMA(prices[96:s.maPeriod+96])
-	} else {
-		// 日前数据不足，不影响判断
-		maDayAgo = 0
-	}
-	
-	// 检查MA是否持续上升（如果strictUp为true）或保持平稳（如果strictUp为false）
+	// 计算各个检查点的MA值
 	var isUptrend bool
-	if s.strictUp {
-		// 严格上升模式
-		isUptrend = currentMA > ma10MinAgo && ma10MinAgo > ma30MinAgo && ma30MinAgo > maHourAgo && maHourAgo > ma4HoursAgo
+	if len(s.checkPoints) > 0 {
+		// 使用配置中的检查点计算MA
+		isUptrend = true // 初始假设是上升趋势
+		
+		// 为各个检查点计算MA
+		for _, duration := range s.checkPoints {
+			// 计算对应的K线偏移量
+			offset := s.calculateOffsetForDuration(duration)
+			
+			// 确保有足够的数据点
+			if len(prices) >= s.maPeriod+offset {
+				maValue := calculateMA(prices[offset:s.maPeriod+offset])
+				
+				// 存储值以便后续使用
+				maValues[duration.String()] = maValue
+				
+				// 检查趋势
+				if s.strictUp {
+					// 严格上升模式
+					if currentMA <= maValue {
+						isUptrend = false
+						break
+					}
+				} else {
+					// 允许平稳模式
+					if currentMA < maValue {
+						isUptrend = false
+						break
+					}
+				}
+				
+			} else {
+				// 数据不足，不判断更远的检查点
+				break
+			}
+		}
 	} else {
-		// 允许平稳模式
-		isUptrend = currentMA >= ma10MinAgo && ma10MinAgo >= ma30MinAgo && ma30MinAgo >= maHourAgo && maHourAgo >= ma4HoursAgo
+		// 使用硬编码的检查点（向后兼容）
+		// 计算10分钟前的MA (1个15分钟K线)
+		ma10MinAgo := 0.0
+		if len(prices) >= s.maPeriod+1 {
+			ma10MinAgo = calculateMA(prices[1:s.maPeriod+1])
+			maValues["10m"] = ma10MinAgo
+		} else {
+			return nil
+		}
+		
+		// 计算30分钟前的MA (2个15分钟K线)
+		ma30MinAgo := 0.0
+		if len(prices) >= s.maPeriod+2 {
+			ma30MinAgo = calculateMA(prices[2:s.maPeriod+2])
+			maValues["30m"] = ma30MinAgo
+		} else {
+			return nil
+		}
+		
+		// 计算1小时前的MA (4个15分钟K线)
+		maHourAgo := 0.0
+		if len(prices) >= s.maPeriod+4 {
+			maHourAgo = calculateMA(prices[4:s.maPeriod+4])
+			maValues["1h"] = maHourAgo
+		} else {
+			return nil
+		}
+		
+		// 计算4小时前的MA (16个15分钟K线)
+		ma4HoursAgo := 0.0
+		if len(prices) >= s.maPeriod+16 {
+			ma4HoursAgo = calculateMA(prices[16:s.maPeriod+16])
+			maValues["4h"] = ma4HoursAgo
+		} else {
+			return nil
+		}
+		
+		// 计算1天前的MA (96个15分钟K线)
+		maDayAgo := 0.0
+		if len(prices) >= s.maPeriod+96 {
+			maDayAgo = calculateMA(prices[96:s.maPeriod+96])
+			maValues["1d"] = maDayAgo
+		} else {
+			// 日前数据不足，不影响判断
+			maDayAgo = 0
+		}
+		
+		// 检查MA是否持续上升（如果strictUp为true）或保持平稳（如果strictUp为false）
+		if s.strictUp {
+			// 严格上升模式
+			isUptrend = currentMA > ma10MinAgo && ma10MinAgo > ma30MinAgo && ma30MinAgo > maHourAgo && maHourAgo > ma4HoursAgo
+		} else {
+			// 允许平稳模式
+			isUptrend = currentMA >= ma10MinAgo && ma10MinAgo >= ma30MinAgo && ma30MinAgo >= maHourAgo && maHourAgo >= ma4HoursAgo
+		}
 	}
 	
 	// 如果满足上升趋势条件，返回结果
 	if isUptrend {
-		return &TrendResult{
+		result := &TrendResult{
 			Symbol:       symbol,
 			Interval:     s.interval,
 			FoundTime:    time.Now(),
 			MAPeriod:     s.maPeriod,
-			CurrentMA:    currentMA,
-			MA10MinAgo:   ma10MinAgo,
-			MA30MinAgo:   ma30MinAgo,
-			MAHourAgo:    maHourAgo,
-			MA4HoursAgo:  ma4HoursAgo,
-			MADayAgo:     maDayAgo,
-			ConsistentUp: currentMA > ma10MinAgo && ma10MinAgo > ma30MinAgo && ma30MinAgo > maHourAgo && maHourAgo > ma4HoursAgo,
-			KLineTime:    latestKLineTime, // 记录最新K线的时间
+			CurrentMA:    maValues["current"],
+			KLineTime:    latestKLineTime,    // 记录最新K线的开始时间
+			KLineEndTime: latestKLineEndTime, // 记录最新K线结束时间
+			ConsistentUp: checkConsistentUp(maValues),
 		}
+		
+		// 设置标准检查点的值（如果有）
+		if ma, ok := maValues["10m"]; ok {
+			result.MA10MinAgo = ma
+		}
+		if ma, ok := maValues["30m"]; ok {
+			result.MA30MinAgo = ma
+		}
+		if ma, ok := maValues["1h"]; ok {
+			result.MAHourAgo = ma
+		}
+		if ma, ok := maValues["4h"]; ok {
+			result.MA4HoursAgo = ma
+		}
+		if ma, ok := maValues["1d"]; ok {
+			result.MADayAgo = ma
+		}
+		
+		return result
 	}
 	
 	return nil
@@ -430,13 +520,14 @@ func (s *TrendScanner) SaveResult(result *TrendResult) error {
 		return fmt.Errorf("保存趋势结果失败: %w", err)
 	}
 	logging.Logger.WithFields(logrus.Fields{
-		"symbol":       result.Symbol,
-		"interval":     result.Interval,
-		"ma_period":    result.MAPeriod,
-		"current_ma":   result.CurrentMA,
-		"ma_hour_ago":  result.MAHourAgo,
-		"kline_time":   result.KLineTime.Format(time.RFC3339),
-		"consistent":   result.ConsistentUp,
+		"symbol":        result.Symbol,
+		"interval":      result.Interval,
+		"ma_period":     result.MAPeriod,
+		"current_ma":    result.CurrentMA,
+		"ma_hour_ago":   result.MAHourAgo,
+		"kline_start":   result.KLineTime.Format(time.RFC3339),
+		"kline_end":     result.KLineEndTime.Format(time.RFC3339),
+		"consistent_up": result.ConsistentUp,
 	}).Info("发现上升趋势")
 	return nil
 }
@@ -461,7 +552,7 @@ func (s *TrendScanner) saveResultToCSV(result *TrendResult) error {
 			return fmt.Errorf("创建CSV文件失败: %w", err)
 		}
 		// 写入CSV头
-		headerLine := "Symbol,Interval,KLineTime,FoundTime,MAPeriod,CurrentMA,MA10MinAgo,MA30MinAgo,MAHourAgo,MA4HoursAgo,MADayAgo,ConsistentUp\n"
+		headerLine := "Symbol,Interval,KLineStartTime,KLineEndTime,FoundTime,MAPeriod,CurrentMA,MA10MinAgo,MA30MinAgo,MAHourAgo,MA4HoursAgo,MADayAgo,ConsistentUp\n"
 		if _, err = file.WriteString(headerLine); err != nil {
 			file.Close()
 			return fmt.Errorf("写入CSV头失败: %w", err)
@@ -476,10 +567,11 @@ func (s *TrendScanner) saveResultToCSV(result *TrendResult) error {
 	defer file.Close()
 
 	// 写入数据行
-	line := fmt.Sprintf("%s,%s,%s,%s,%d,%.8f,%.8f,%.8f,%.8f,%.8f,%.8f,%t\n",
+	line := fmt.Sprintf("%s,%s,%s,%s,%s,%d,%.8f,%.8f,%.8f,%.8f,%.8f,%.8f,%t\n",
 		result.Symbol,
 		result.Interval,
 		result.KLineTime.Format(time.RFC3339),
+		result.KLineEndTime.Format(time.RFC3339),
 		result.FoundTime.Format(time.RFC3339),
 		result.MAPeriod,
 		result.CurrentMA,
@@ -496,10 +588,137 @@ func (s *TrendScanner) saveResultToCSV(result *TrendResult) error {
 	}
 
 	logging.Logger.WithFields(logrus.Fields{
-		"symbol":    result.Symbol,
-		"file":      filePath,
-		"kline_time": result.KLineTime.Format(time.RFC3339),
+		"symbol":      result.Symbol,
+		"file":        filePath,
+		"kline_start": result.KLineTime.Format(time.RFC3339),
+		"kline_end":   result.KLineEndTime.Format(time.RFC3339),
 	}).Info("趋势结果已保存到CSV")
 
 	return nil
+}
+
+// parseIntervalDuration 解析K线间隔为time.Duration
+func parseIntervalDuration(interval string) (time.Duration, error) {
+	switch interval {
+	case "1m":
+		return 1 * time.Minute, nil
+	case "3m":
+		return 3 * time.Minute, nil
+	case "5m":
+		return 5 * time.Minute, nil
+	case "15m":
+		return 15 * time.Minute, nil
+	case "30m":
+		return 30 * time.Minute, nil
+	case "1h":
+		return 1 * time.Hour, nil
+	case "2h":
+		return 2 * time.Hour, nil
+	case "4h":
+		return 4 * time.Hour, nil
+	case "6h":
+		return 6 * time.Hour, nil
+	case "8h":
+		return 8 * time.Hour, nil
+	case "12h":
+		return 12 * time.Hour, nil
+	case "1d":
+		return 24 * time.Hour, nil
+	case "3d":
+		return 72 * time.Hour, nil
+	case "1w":
+		return 7 * 24 * time.Hour, nil
+	case "1M":
+		return 30 * 24 * time.Hour, nil // 近似值
+	default:
+		return 0, fmt.Errorf("未知的间隔格式: %s", interval)
+	}
+}
+
+// getMaxCheckPointOffset 获取最大检查点偏移量
+func (s *TrendScanner) getMaxCheckPointOffset() int {
+	if len(s.checkPoints) == 0 {
+		// 如果没有配置检查点，使用默认的最大偏移（1天 = 96个15分钟K线）
+		return 96
+	}
+	
+	// 解析各个检查点并找出最大的偏移量
+	maxOffset := 0
+	
+	// 为15分钟K线计算偏移量
+	if s.interval == "15m" {
+		for _, duration := range s.checkPoints {
+			minutesOffset := int(duration.Minutes())
+			klineOffset := minutesOffset / 15 // 每15分钟一个K线
+			if klineOffset > maxOffset {
+				maxOffset = klineOffset
+			}
+		}
+	} else {
+		// 对于其他时间间隔，使用一个安全的默认值
+		// 默认获取足够的数据以支持最远1天的MA计算
+		intervalDuration, err := parseIntervalDuration(s.interval)
+		if err != nil {
+			return 96 // 默认值
+		}
+		
+		// 计算一天内有多少个这样的K线
+		oneDayMinutes := 24 * 60
+		intervalMinutes := int(intervalDuration.Minutes())
+		if intervalMinutes > 0 {
+			maxOffset = oneDayMinutes / intervalMinutes
+		} else {
+			maxOffset = 96 // 默认值
+		}
+	}
+	
+	return maxOffset
+}
+
+// calculateOffsetForDuration 计算给定duration对应的K线偏移量
+func (s *TrendScanner) calculateOffsetForDuration(duration time.Duration) int {
+	intervalDuration, err := parseIntervalDuration(s.interval)
+	if err != nil {
+		// 无法解析间隔，使用默认值
+		return 0
+	}
+	
+	// 计算偏移的K线数量
+	durationMinutes := int(duration.Minutes())
+	intervalMinutes := int(intervalDuration.Minutes())
+	
+	if intervalMinutes > 0 {
+		return durationMinutes / intervalMinutes
+	}
+	
+	// 默认偏移量
+	return 0
+}
+
+// checkConsistentUp 检查MA是否连续上升
+func checkConsistentUp(maValues map[string]float64) bool {
+	// 需要按照时间顺序检查MA值
+	// 首先定义检查点顺序
+	checkOrder := []string{"current", "10m", "30m", "1h", "4h", "1d"}
+	
+	var validValues []float64
+	for _, key := range checkOrder {
+		if value, ok := maValues[key]; ok {
+			validValues = append(validValues, value)
+		}
+	}
+	
+	// 需要至少两个点才能判断趋势
+	if len(validValues) < 2 {
+		return false
+	}
+	
+	// 检查是否严格上升
+	for i := 0; i < len(validValues)-1; i++ {
+		if validValues[i] <= validValues[i+1] {
+			return false
+		}
+	}
+	
+	return true
 } 
