@@ -189,10 +189,12 @@ func (t *VolatilityTask) Execute(ctx context.Context, db *gorm.DB, symbol string
 				"stdDev":      stdDev,
 				"returnCount": float64(len(returns)),
 				"lastPrice":   klines[0].ClosePrice,
+				"minVolatility": minVolatility,
 			},
 			Descriptions: []string{
 				fmt.Sprintf("%s在%s窗口内波动率为%.2f%%", symbol, timeWindow, volatility),
 				fmt.Sprintf("基于%d个K线计算，标准差为%.6f", len(returns), stdDev),
+				fmt.Sprintf("波动率阈值: %.2f%%，K线间隔: %s", minVolatility, interval),
 			},
 		}
 

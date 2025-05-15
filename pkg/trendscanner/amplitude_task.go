@@ -158,10 +158,12 @@ func (t *AmplitudeTask) Execute(ctx context.Context, db *gorm.DB, symbol string)
 				"highPrice":   highestPrice,
 				"lowPrice":    lowestPrice,
 				"lastPrice":   klines[0].ClosePrice,
+				"minAmplitude": minAmplitude,
 			},
 			Descriptions: []string{
 				fmt.Sprintf("%s在%s内振幅达到%.2f%%", symbol, timeWindow, amplitude),
 				fmt.Sprintf("最高价: %.8f, 最低价: %.8f", highestPrice, lowestPrice),
+				fmt.Sprintf("振幅阈值: %.2f%%，K线间隔: %s", minAmplitude, interval),
 			},
 		}
 

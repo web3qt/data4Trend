@@ -213,6 +213,7 @@ func (t *MATrendTask) Execute(ctx context.Context, db *gorm.DB, symbol string) (
 		Descriptions: []string{
 			fmt.Sprintf("%s的MA%d趋势向上", symbol, s.maPeriod),
 			fmt.Sprintf("连续%d根K线在MA线上方", aboveMACount),
+			fmt.Sprintf("当前MA值: %.8f，参考周期: %s", currentMA, s.interval),
 		},
 	}
 	

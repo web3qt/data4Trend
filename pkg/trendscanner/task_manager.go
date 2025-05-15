@@ -18,21 +18,26 @@ import (
 
 // TaskManager 任务管理器
 type TaskManager struct {
-	tasks       map[string]ScanTask
-	taskResults map[string][]*TaskResult
-	db          *gorm.DB
+	tasks        map[string]ScanTask
+	taskResults  map[string][]*TaskResult
+	db           *gorm.DB
 	csvOutputDir string
-	mutex       sync.RWMutex
+	csvReporter  *CSVReporter
+	mutex        sync.RWMutex
 }
 
 // NewTaskManager 创建一个新的任务管理器
 func NewTaskManager(db *gorm.DB, csvOutputDir string) *TaskManager {
+	// 创建统一CSV报告生成器
+	csvReporter := NewCSVReporter(csvOutputDir)
+	
 	return &TaskManager{
-		tasks:       make(map[string]ScanTask),
-		taskResults: make(map[string][]*TaskResult),
-		db:          db,
+		tasks:        make(map[string]ScanTask),
+		taskResults:  make(map[string][]*TaskResult),
+		db:           db,
 		csvOutputDir: csvOutputDir,
-		mutex:       sync.RWMutex{},
+		csvReporter:  csvReporter,
+		mutex:        sync.RWMutex{},
 	}
 }
 
@@ -156,6 +161,17 @@ func (m *TaskManager) ExecuteTask(ctx context.Context, taskName string, symbol s
 
 // saveResultToCSV 保存任务结果到CSV文件
 func (m *TaskManager) saveResultToCSV(taskName string, result *TaskResult) error {
+	// 首先保存到统一CSV文件
+	if m.csvReporter != nil {
+		if err := m.csvReporter.SaveResult(result); err != nil {
+			logging.Logger.WithError(err).WithFields(logrus.Fields{
+				"task":   taskName,
+				"symbol": result.Symbol,
+			}).Error("保存结果到统一CSV失败")
+		}
+	}
+	
+	// 保留原有的任务特定CSV逻辑
 	if m.csvOutputDir == "" {
 		return fmt.Errorf("未设置CSV输出目录")
 	}

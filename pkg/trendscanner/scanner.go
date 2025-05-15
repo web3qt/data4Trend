@@ -29,6 +29,7 @@ type TrendScanner struct {
 	strictUp          bool
 	consecutiveKLines int
 	taskManager       *TaskManager  // 新增任务管理器
+	csvReporter       *CSVReporter  // 统一CSV报告生成器
 }
 
 // NewTrendScanner 创建新的趋势扫描器
@@ -68,6 +69,9 @@ func NewTrendScannerWithConfig(ctx context.Context, db *gorm.DB, config *TrendSc
 	
 	// 初始化任务管理器
 	s.taskManager = NewTaskManager(db, config.Scan.CSVOutput)
+	
+	// 初始化统一CSV报告生成器
+	s.csvReporter = NewCSVReporter(config.Scan.CSVOutput)
 	
 	// 注册MA趋势任务 (作为内置任务)
 	maTask := NewMATrendTask(s)
@@ -198,6 +202,13 @@ func (s *TrendScanner) Start() {
 						"symbol":     result.Symbol,
 						"found_time": result.FoundTime.Format(time.RFC3339),
 					}).Info("发现符合条件的币种")
+				}
+				
+				// 将结果保存到统一CSV文件
+				if len(results) > 0 && s.csvReporter != nil {
+					if err := s.csvReporter.SaveResults(results); err != nil {
+						logging.Logger.WithError(err).WithField("symbol", symbol).Error("保存到统一CSV文件失败")
+					}
 				}
 			}
 		}(i)
