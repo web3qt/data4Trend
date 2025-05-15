@@ -27,4 +27,5 @@ trend:
     - 1h     # 1小时前 (4个15分钟K线)
     - 4h     # 4小时前 (16个15分钟K线)
     - 1d     # 1天前 (96个15分钟K线)
-  require_strict_up: false   # 是否要求严格上升（true）或者允许平稳（false） 
+  require_strict_up: false   # 是否要求严格上升（true）或者允许平稳（false）
+  consecutive_klines: 20     # 要求连续多少根K线运行在MA线之上 

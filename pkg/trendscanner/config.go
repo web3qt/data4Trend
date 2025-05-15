@@ -32,8 +32,9 @@ type TrendScannerConfig struct {
 	} `yaml:"scan"`
 
 	Trend struct {
-		CheckPoints    []string `yaml:"check_points"`
-		RequireStrictUp bool    `yaml:"require_strict_up"`
+		CheckPoints      []string `yaml:"check_points"`
+		RequireStrictUp  bool     `yaml:"require_strict_up"`
+		ConsecutiveKLines int     `yaml:"consecutive_klines"`
 	} `yaml:"trend"`
 }
 
@@ -119,6 +120,7 @@ func DefaultConfig() *TrendScannerConfig {
 	// 趋势条件默认配置
 	config.Trend.CheckPoints = []string{"10m", "30m", "1h", "4h", "1d"}
 	config.Trend.RequireStrictUp = false
+	config.Trend.ConsecutiveKLines = 10
 	
 	return config
 }

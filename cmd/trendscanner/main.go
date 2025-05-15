@@ -30,6 +30,7 @@ func main() {
 		interval   = flag.String("interval", "", "K线间隔（覆盖配置文件）")
 		workers    = flag.Int("workers", 0, "工作协程数（覆盖配置文件）")
 		scanInterval = flag.Duration("scan-interval", 0, "扫描间隔（覆盖配置文件）")
+		consecutiveKLines = flag.Int("consecutive-klines", 0, "连续K线数量（覆盖配置文件）")
 	)
 
 	flag.Parse()
@@ -74,6 +75,9 @@ func main() {
 	}
 	if *scanInterval != 0 {
 		cfg.Scan.Interval = scanInterval.String()
+	}
+	if *consecutiveKLines != 0 {
+		cfg.Trend.ConsecutiveKLines = *consecutiveKLines
 	}
 
 	// 连接MySQL数据库
@@ -125,11 +129,12 @@ func main() {
 
 	// 打印配置信息
 	logging.Logger.WithFields(logrus.Fields{
-		"ma_period":     cfg.MA.Period,
-		"interval":      cfg.MA.Interval,
-		"workers":       cfg.Scan.Workers,
-		"scan_interval": cfg.Scan.Interval,
-		"csv_output":    cfg.Scan.CSVOutput,
+		"ma_period":        cfg.MA.Period,
+		"interval":         cfg.MA.Interval,
+		"workers":          cfg.Scan.Workers,
+		"scan_interval":    cfg.Scan.Interval,
+		"csv_output":       cfg.Scan.CSVOutput,
+		"consecutive_klines": cfg.Trend.ConsecutiveKLines,
 	}).Info("趋势扫描器配置")
 
 	// 启动扫描器

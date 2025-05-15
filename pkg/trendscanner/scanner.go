@@ -16,17 +16,18 @@ import (
 
 // TrendScanner 趋势扫描器
 type TrendScanner struct {
-	ctx          context.Context
-	db           *gorm.DB
-	interval     string
-	maPeriod     int
-	workers      int
-	scanInterval time.Duration
-	symbols      []string
-	config       *TrendScannerConfig
-	csvOutputDir string
-	checkPoints  []time.Duration
-	strictUp     bool
+	ctx               context.Context
+	db                *gorm.DB
+	interval          string
+	maPeriod          int
+	workers           int
+	scanInterval      time.Duration
+	symbols           []string
+	config            *TrendScannerConfig
+	csvOutputDir      string
+	checkPoints       []time.Duration
+	strictUp          bool
+	consecutiveKLines int
 }
 
 // NewTrendScanner 创建新的趋势扫描器
@@ -51,16 +52,17 @@ func NewTrendScanner(ctx context.Context, db *gorm.DB, opt ...Option) *TrendScan
 // NewTrendScannerWithConfig 使用配置文件创建趋势扫描器
 func NewTrendScannerWithConfig(ctx context.Context, db *gorm.DB, config *TrendScannerConfig) *TrendScanner {
 	s := &TrendScanner{
-		ctx:          ctx,
-		db:           db,
-		interval:     config.MA.Interval,
-		maPeriod:     config.MA.Period,
-		workers:      config.Scan.Workers,
-		scanInterval: config.GetScanInterval(),
-		config:       config,
-		csvOutputDir: config.Scan.CSVOutput,
-		checkPoints:  config.GetCheckPointDurations(),
-		strictUp:     config.Trend.RequireStrictUp,
+		ctx:               ctx,
+		db:                db,
+		interval:          config.MA.Interval,
+		maPeriod:          config.MA.Period,
+		workers:           config.Scan.Workers,
+		scanInterval:      config.GetScanInterval(),
+		config:            config,
+		csvOutputDir:      config.Scan.CSVOutput,
+		checkPoints:       config.GetCheckPointDurations(),
+		strictUp:          config.Trend.RequireStrictUp,
+		consecutiveKLines: config.Trend.ConsecutiveKLines,
 	}
 	
 	return s
@@ -108,6 +110,13 @@ func WithSymbols(symbols []string) Option {
 func WithCSVOutputDir(dir string) Option {
 	return func(s *TrendScanner) {
 		s.csvOutputDir = dir
+	}
+}
+
+// WithConsecutiveKLines 设置连续K线数量
+func WithConsecutiveKLines(count int) Option {
+	return func(s *TrendScanner) {
+		s.consecutiveKLines = count
 	}
 }
 
@@ -244,6 +253,7 @@ type TrendResult struct {
 	ConsistentUp bool      `gorm:"type:tinyint(1)"`
 	KLineTime    time.Time `gorm:"index:idx_kline_time"` // K线开始时间
 	KLineEndTime time.Time `gorm:"index:idx_kline_end_time"` // K线结束时间
+	AboveMAKLines int       `gorm:"type:int"`
 	
 	CreatedAt time.Time `gorm:"autoCreateTime"`
 }
@@ -290,10 +300,10 @@ func (s *TrendScanner) scanSymbol(symbol string) *TrendResult {
 	`, "`"+symbol+"`") // 使用MySQL的反引号语法
 	
 	// 计算需要的K线数据数量
-	// 假设我们需要计算当前MA和最远检查点的MA
-	// 对于MA81，如果最远检查点是1天（96个15分钟K线），则需要MA81+96=177个K线
+	// 我们需要额外的K线来检查连续K线都在MA线上方
+	// 因此，最小K线数量应该是MA周期 + 检查点偏移量 + 连续K线数量
 	maxOffset := s.getMaxCheckPointOffset()
-	requiredKLines := s.maPeriod + maxOffset
+	requiredKLines := s.maPeriod + maxOffset + s.consecutiveKLines
 	
 	rows, err := s.db.Raw(query, s.interval, requiredKLines).Rows()
 	if err != nil {
@@ -324,7 +334,7 @@ func (s *TrendScanner) scanSymbol(symbol string) *TrendResult {
 	}
 	
 	// 数据点不足以计算MA
-	if len(prices) < s.maPeriod {
+	if len(prices) < s.maPeriod + s.consecutiveKLines {
 		return nil
 	}
 
@@ -348,14 +358,54 @@ func (s *TrendScanner) scanSymbol(symbol string) *TrendResult {
 		}
 	}
 	
+	// 检查连续K线是否都在MA线之上
+	aboveMACount := 0 // 在MA线上方的连续K线数量
+	isConsecutiveAboveMA := false
+	
+	// 计算MA值
+	maValues := make([]float64, len(prices) - s.maPeriod + 1)
+	
+	// 计算不同窗口的MA值
+	for i := 0; i <= len(prices) - s.maPeriod; i++ {
+		maValues[i] = calculateMA(prices[i:i+s.maPeriod])
+	}
+	
+	// 检查连续K线是否都在MA线上方
+	// 注意：prices[0]是最新的价格，prices[1]是次新的，以此类推
+	for i := 0; i < s.consecutiveKLines && i < len(prices); i++ {
+		// MA值对应的索引需要偏移i
+		if i + 1 >= len(maValues) {
+			break // 没有足够的MA值用于比较
+		}
+		
+		// 检查K线收盘价是否高于对应的MA值
+		if prices[i] > maValues[i+1] {
+			aboveMACount++
+		} else {
+			// 如果有一条K线不在MA线上方，重置计数器
+			aboveMACount = 0
+		}
+		
+		// 如果连续K线数量达到要求，则满足条件
+		if aboveMACount >= s.consecutiveKLines {
+			isConsecutiveAboveMA = true
+			break
+		}
+	}
+	
+	// 只有当连续K线都在MA线上方时，才继续检查MA趋势
+	if !isConsecutiveAboveMA {
+		return nil
+	}
+	
 	// 计算当前的MA值和历史MA值
 	// 注意: prices是按照时间倒序排列的，最新的在前面
 	// 计算当前MA
-	currentMA := calculateMA(prices[:s.maPeriod])
+	currentMA := maValues[0] // 最新的MA值
 	
 	// 创建保存各个时间点MA值的map
-	maValues := make(map[string]float64)
-	maValues["current"] = currentMA
+	maValueMap := make(map[string]float64)
+	maValueMap["current"] = currentMA
 	
 	// 计算各个检查点的MA值
 	var isUptrend bool
@@ -369,11 +419,11 @@ func (s *TrendScanner) scanSymbol(symbol string) *TrendResult {
 			offset := s.calculateOffsetForDuration(duration)
 			
 			// 确保有足够的数据点
-			if len(prices) >= s.maPeriod+offset {
-				maValue := calculateMA(prices[offset:s.maPeriod+offset])
+			if offset < len(maValues) {
+				maValue := maValues[offset]
 				
 				// 存储值以便后续使用
-				maValues[duration.String()] = maValue
+				maValueMap[duration.String()] = maValue
 				
 				// 检查趋势
 				if s.strictUp {
@@ -389,7 +439,6 @@ func (s *TrendScanner) scanSymbol(symbol string) *TrendResult {
 						break
 					}
 				}
-				
 			} else {
 				// 数据不足，不判断更远的检查点
 				break
@@ -397,51 +446,27 @@ func (s *TrendScanner) scanSymbol(symbol string) *TrendResult {
 		}
 	} else {
 		// 使用硬编码的检查点（向后兼容）
-		// 计算10分钟前的MA (1个15分钟K线)
-		ma10MinAgo := 0.0
-		if len(prices) >= s.maPeriod+1 {
-			ma10MinAgo = calculateMA(prices[1:s.maPeriod+1])
-			maValues["10m"] = ma10MinAgo
-		} else {
-			return nil
+		// 确定各时间点的偏移量
+		offsets := map[string]int{
+			"10m": 1,  // 1个15分钟K线
+			"30m": 2,  // 2个15分钟K线
+			"1h":  4,  // 4个15分钟K线
+			"4h":  16, // 16个15分钟K线
+			"1d":  96, // 96个15分钟K线
 		}
 		
-		// 计算30分钟前的MA (2个15分钟K线)
-		ma30MinAgo := 0.0
-		if len(prices) >= s.maPeriod+2 {
-			ma30MinAgo = calculateMA(prices[2:s.maPeriod+2])
-			maValues["30m"] = ma30MinAgo
-		} else {
-			return nil
+		// 计算并存储各时间点的MA值
+		for timePoint, offset := range offsets {
+			if offset < len(maValues) {
+				maValueMap[timePoint] = maValues[offset]
+			}
 		}
 		
-		// 计算1小时前的MA (4个15分钟K线)
-		maHourAgo := 0.0
-		if len(prices) >= s.maPeriod+4 {
-			maHourAgo = calculateMA(prices[4:s.maPeriod+4])
-			maValues["1h"] = maHourAgo
-		} else {
-			return nil
-		}
-		
-		// 计算4小时前的MA (16个15分钟K线)
-		ma4HoursAgo := 0.0
-		if len(prices) >= s.maPeriod+16 {
-			ma4HoursAgo = calculateMA(prices[16:s.maPeriod+16])
-			maValues["4h"] = ma4HoursAgo
-		} else {
-			return nil
-		}
-		
-		// 计算1天前的MA (96个15分钟K线)
-		maDayAgo := 0.0
-		if len(prices) >= s.maPeriod+96 {
-			maDayAgo = calculateMA(prices[96:s.maPeriod+96])
-			maValues["1d"] = maDayAgo
-		} else {
-			// 日前数据不足，不影响判断
-			maDayAgo = 0
-		}
+		// 获取各时间点的MA值
+		ma10MinAgo := maValueMap["10m"]
+		ma30MinAgo := maValueMap["30m"]
+		maHourAgo := maValueMap["1h"]
+		ma4HoursAgo := maValueMap["4h"]
 		
 		// 检查MA是否持续上升（如果strictUp为true）或保持平稳（如果strictUp为false）
 		if s.strictUp {
@@ -456,30 +481,31 @@ func (s *TrendScanner) scanSymbol(symbol string) *TrendResult {
 	// 如果满足上升趋势条件，返回结果
 	if isUptrend {
 		result := &TrendResult{
-			Symbol:       symbol,
-			Interval:     s.interval,
-			FoundTime:    time.Now(),
-			MAPeriod:     s.maPeriod,
-			CurrentMA:    maValues["current"],
-			KLineTime:    latestKLineTime,    // 记录最新K线的开始时间
-			KLineEndTime: latestKLineEndTime, // 记录最新K线结束时间
-			ConsistentUp: checkConsistentUp(maValues),
+			Symbol:          symbol,
+			Interval:        s.interval,
+			FoundTime:       time.Now(),
+			MAPeriod:        s.maPeriod,
+			CurrentMA:       maValueMap["current"],
+			KLineTime:       latestKLineTime,    // 记录最新K线的开始时间
+			KLineEndTime:    latestKLineEndTime, // 记录最新K线结束时间
+			ConsistentUp:    checkConsistentUp(maValueMap),
+			AboveMAKLines:   aboveMACount,       // 记录在MA线上方的连续K线数量
 		}
 		
 		// 设置标准检查点的值（如果有）
-		if ma, ok := maValues["10m"]; ok {
+		if ma, ok := maValueMap["10m"]; ok {
 			result.MA10MinAgo = ma
 		}
-		if ma, ok := maValues["30m"]; ok {
+		if ma, ok := maValueMap["30m"]; ok {
 			result.MA30MinAgo = ma
 		}
-		if ma, ok := maValues["1h"]; ok {
+		if ma, ok := maValueMap["1h"]; ok {
 			result.MAHourAgo = ma
 		}
-		if ma, ok := maValues["4h"]; ok {
+		if ma, ok := maValueMap["4h"]; ok {
 			result.MA4HoursAgo = ma
 		}
-		if ma, ok := maValues["1d"]; ok {
+		if ma, ok := maValueMap["1d"]; ok {
 			result.MADayAgo = ma
 		}
 		
@@ -552,7 +578,7 @@ func (s *TrendScanner) saveResultToCSV(result *TrendResult) error {
 			return fmt.Errorf("创建CSV文件失败: %w", err)
 		}
 		// 写入CSV头
-		headerLine := "Symbol,Interval,KLineStartTime,KLineEndTime,FoundTime,MAPeriod,CurrentMA,MA10MinAgo,MA30MinAgo,MAHourAgo,MA4HoursAgo,MADayAgo,ConsistentUp\n"
+		headerLine := "Symbol,Interval,KLineStartTime,KLineEndTime,FoundTime,MAPeriod,CurrentMA,MA10MinAgo,MA30MinAgo,MAHourAgo,MA4HoursAgo,MADayAgo,ConsistentUp,AboveMAKLines\n"
 		if _, err = file.WriteString(headerLine); err != nil {
 			file.Close()
 			return fmt.Errorf("写入CSV头失败: %w", err)
@@ -567,7 +593,7 @@ func (s *TrendScanner) saveResultToCSV(result *TrendResult) error {
 	defer file.Close()
 
 	// 写入数据行
-	line := fmt.Sprintf("%s,%s,%s,%s,%s,%d,%.8f,%.8f,%.8f,%.8f,%.8f,%.8f,%t\n",
+	line := fmt.Sprintf("%s,%s,%s,%s,%s,%d,%.8f,%.8f,%.8f,%.8f,%.8f,%.8f,%t,%d\n",
 		result.Symbol,
 		result.Interval,
 		result.KLineTime.Format(time.RFC3339),
@@ -581,6 +607,7 @@ func (s *TrendScanner) saveResultToCSV(result *TrendResult) error {
 		result.MA4HoursAgo,
 		result.MADayAgo,
 		result.ConsistentUp,
+		result.AboveMAKLines,
 	)
 
 	if _, err = file.WriteString(line); err != nil {
@@ -702,9 +729,12 @@ func checkConsistentUp(maValues map[string]float64) bool {
 	checkOrder := []string{"current", "10m", "30m", "1h", "4h", "1d"}
 	
 	var validValues []float64
+	var validKeys []string
+	
 	for _, key := range checkOrder {
 		if value, ok := maValues[key]; ok {
 			validValues = append(validValues, value)
+			validKeys = append(validKeys, key)
 		}
 	}
 	
@@ -716,6 +746,12 @@ func checkConsistentUp(maValues map[string]float64) bool {
 	// 检查是否严格上升
 	for i := 0; i < len(validValues)-1; i++ {
 		if validValues[i] <= validValues[i+1] {
+			logging.Logger.WithFields(logrus.Fields{
+				"point1": validKeys[i],
+				"value1": validValues[i],
+				"point2": validKeys[i+1],
+				"value2": validValues[i+1],
+			}).Debug("MA不是严格上升")
 			return false
 		}
 	}
