@@ -28,8 +28,9 @@ type TrendScanner struct {
 	checkPoints       []time.Duration
 	strictUp          bool
 	consecutiveKLines int
-	taskManager       *TaskManager  // 新增任务管理器
-	csvReporter       *CSVReporter  // 统一CSV报告生成器
+	maxDataAgeHours   int             // 新增：数据最大有效期（小时）
+	taskManager       *TaskManager    // 新增任务管理器
+	csvReporter       *CSVReporter    // 统一CSV报告生成器
 }
 
 // NewTrendScanner 创建新的趋势扫描器
@@ -65,10 +66,11 @@ func NewTrendScannerWithConfig(ctx context.Context, db *gorm.DB, config *TrendSc
 		checkPoints:       config.GetCheckPointDurations(),
 		strictUp:          config.Trend.RequireStrictUp,
 		consecutiveKLines: config.Trend.ConsecutiveKLines,
+		maxDataAgeHours:   config.Scan.MaxDataAgeHours,
 	}
 	
 	// 初始化任务管理器
-	s.taskManager = NewTaskManager(db, config.Scan.CSVOutput)
+	s.taskManager = NewTaskManager(db, config.Scan.CSVOutput, config.Scan.MaxDataAgeHours)
 	
 	// 初始化统一CSV报告生成器
 	s.csvReporter = NewCSVReporter(config.Scan.CSVOutput)

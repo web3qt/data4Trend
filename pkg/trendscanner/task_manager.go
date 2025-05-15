@@ -18,26 +18,28 @@ import (
 
 // TaskManager 任务管理器
 type TaskManager struct {
-	tasks        map[string]ScanTask
-	taskResults  map[string][]*TaskResult
-	db           *gorm.DB
-	csvOutputDir string
-	csvReporter  *CSVReporter
-	mutex        sync.RWMutex
+	tasks          map[string]ScanTask
+	taskResults    map[string][]*TaskResult
+	db             *gorm.DB
+	csvOutputDir   string
+	csvReporter    *CSVReporter // 添加统一CSV报告生成器
+	maxDataAgeHours int         // 数据最大有效期（小时）
+	mutex          sync.RWMutex
 }
 
 // NewTaskManager 创建一个新的任务管理器
-func NewTaskManager(db *gorm.DB, csvOutputDir string) *TaskManager {
+func NewTaskManager(db *gorm.DB, csvOutputDir string, maxDataAgeHours int) *TaskManager {
 	// 创建统一CSV报告生成器
 	csvReporter := NewCSVReporter(csvOutputDir)
 	
 	return &TaskManager{
-		tasks:        make(map[string]ScanTask),
-		taskResults:  make(map[string][]*TaskResult),
-		db:           db,
-		csvOutputDir: csvOutputDir,
-		csvReporter:  csvReporter,
-		mutex:        sync.RWMutex{},
+		tasks:          make(map[string]ScanTask),
+		taskResults:    make(map[string][]*TaskResult),
+		db:             db,
+		csvOutputDir:   csvOutputDir,
+		csvReporter:    csvReporter,
+		maxDataAgeHours: maxDataAgeHours,
+		mutex:          sync.RWMutex{},
 	}
 }
 
@@ -95,7 +97,18 @@ func (m *TaskManager) ExecuteTasks(ctx context.Context, symbol string) ([]*TaskR
 			continue
 		}
 		
+		// 只处理有结果且符合时间要求的数据
 		if result != nil && result.Found {
+			// 验证数据时间是否在允许范围内
+			if m.maxDataAgeHours > 0 && !IsRecent(result.KLineTime, m.maxDataAgeHours) {
+				logging.Logger.WithFields(logrus.Fields{
+					"task":      task.Name(),
+					"symbol":    symbol,
+					"klineTime": result.KLineTime.Format(time.RFC3339),
+				}).Debug("跳过过期的K线数据")
+				continue
+			}
+			
 			results = append(results, result)
 			
 			// 保存结果到CSV
@@ -140,6 +153,16 @@ func (m *TaskManager) ExecuteTask(ctx context.Context, taskName string, symbol s
 	}
 	
 	if result != nil && result.Found {
+		// 验证数据时间是否在允许范围内
+		if m.maxDataAgeHours > 0 && !IsRecent(result.KLineTime, m.maxDataAgeHours) {
+			logging.Logger.WithFields(logrus.Fields{
+				"task":      taskName,
+				"symbol":    symbol,
+				"klineTime": result.KLineTime.Format(time.RFC3339),
+			}).Debug("跳过过期的K线数据")
+			return nil, nil
+		}
+		
 		// 保存结果到CSV
 		if m.csvOutputDir != "" {
 			if err := m.saveResultToCSV(taskName, result); err != nil {
@@ -268,6 +291,59 @@ func (m *TaskManager) ClearTaskResults() {
 	defer m.mutex.Unlock()
 	
 	m.taskResults = make(map[string][]*TaskResult)
+}
+
+// SaveTaskResults 将任务结果保存到内存和CSV文件
+func (m *TaskManager) SaveTaskResults(taskName string, results []*TaskResult) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	// 过滤掉非当天的结果
+	currentResults := make([]*TaskResult, 0, len(results))
+	for _, result := range results {
+		if result.Found && IsToday(result.KLineTime) {
+			currentResults = append(currentResults, result)
+		} else if result.Found {
+			// 记录被过滤掉的非当天数据
+			logging.Logger.WithFields(logrus.Fields{
+				"symbol":     result.Symbol,
+				"task":       result.TaskName,
+				"kline_time": result.KLineTime.Format(time.RFC3339),
+			}).Debug("TaskManager: 跳过非当天的K线数据")
+		}
+	}
+
+	// 如果没有找到当天的结果，直接返回
+	if len(currentResults) == 0 {
+		return
+	}
+
+	// 以前保存的结果
+	m.taskResults[taskName] = append(m.taskResults[taskName], currentResults...)
+
+	// 保存到CSV文件
+	for _, result := range currentResults {
+		if !result.Found {
+			continue
+		}
+
+		// 记录找到的结果
+		logging.Logger.WithFields(logrus.Fields{
+			"symbol":     result.Symbol,
+			"task":       result.TaskName,
+			"found_time": result.FoundTime.Format(time.RFC3339),
+		}).Info("发现符合条件的币种")
+
+		// 保存到单独的CSV文件
+		go func(r *TaskResult) {
+			if err := m.saveResultToCSV(taskName, r); err != nil {
+				logging.Logger.WithError(err).WithFields(logrus.Fields{
+					"symbol": r.Symbol,
+					"task":   r.TaskName,
+				}).Error("保存结果到CSV失败")
+			}
+		}(result)
+	}
 }
 
 // 帮助函数

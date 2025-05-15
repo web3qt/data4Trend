@@ -31,11 +31,17 @@ func (t *MATrendTask) Execute(ctx context.Context, db *gorm.DB, symbol string) (
 	// 沿用原有scanSymbol方法的实现
 	s := t.scanner
 	
+	// 计算时间过滤条件（最近N天的数据）
+	// 为了确保能获取足够的历史数据进行计算，我们设置一个较大的时间窗口
+	maxDataAge := 10 * 24 * time.Hour // 10天，需要更长的历史数据计算MA
+	minTime := time.Now().Add(-maxDataAge)
+	
 	// 查询足够数量的K线数据来计算MA
 	query := fmt.Sprintf(`
 		SELECT id, interval_type, open_time, close_time, close_price 
 		FROM %s 
 		WHERE interval_type = ? 
+		AND open_time > ?
 		ORDER BY open_time DESC 
 		LIMIT ?
 	`, "`"+symbol+"`") // 使用MySQL的反引号语法
@@ -46,7 +52,7 @@ func (t *MATrendTask) Execute(ctx context.Context, db *gorm.DB, symbol string) (
 	maxOffset := s.getMaxCheckPointOffset()
 	requiredKLines := s.maPeriod + maxOffset + s.consecutiveKLines
 	
-	rows, err := db.Raw(query, s.interval, requiredKLines).Rows()
+	rows, err := db.Raw(query, s.interval, minTime, requiredKLines).Rows()
 	if err != nil {
 		logging.Logger.WithError(err).WithField("symbol", symbol).Debug("查询K线数据失败")
 		return nil, err
@@ -97,6 +103,20 @@ func (t *MATrendTask) Execute(ctx context.Context, db *gorm.DB, symbol string) (
 			// 无法解析间隔，使用开始时间
 			latestKLineEndTime = latestKLineTime
 		}
+	}
+	
+	// 检查是否是当天的数据
+	if !IsToday(latestKLineTime) {
+		logging.Logger.WithFields(logrus.Fields{
+			"symbol":      symbol,
+			"kline_time":  latestKLineTime.Format(time.RFC3339),
+			"current_time": time.Now().Format(time.RFC3339),
+		}).Debug("跳过非当天的K线数据")
+		return &TaskResult{
+			Symbol:   symbol,
+			TaskName: t.Name(),
+			Found:    false,
+		}, nil
 	}
 	
 	// 检查连续K线是否都在MA线之上
@@ -263,15 +283,17 @@ func (t *MATrendTask) Execute(ctx context.Context, db *gorm.DB, symbol string) (
 		logging.Logger.WithError(err).WithField("symbol", symbol).Error("保存趋势结果到数据库失败")
 	}
 	
+	// 记录MA上升趋势
 	logging.Logger.WithFields(logrus.Fields{
 		"symbol":        symbol,
-		"interval":      s.interval,
 		"ma_period":     s.maPeriod,
+		"interval":      s.interval,
 		"current_ma":    currentMA,
-		"kline_start":   latestKLineTime.Format(time.RFC3339),
-		"kline_end":     latestKLineEndTime.Format(time.RFC3339),
+		"ma_hour_ago":   0,
 		"consistent_up": true,
-	}).Info("发现MA上升趋势")
+		"kline_start":   latestKLineTime.Format("2006-01-02T15:04:05-07:00"),
+		"kline_end":     latestKLineEndTime.Format("2006-01-02T15:04:05-07:00"),
+	}).Info("发现上升趋势")
 	
 	return result, nil
 } 

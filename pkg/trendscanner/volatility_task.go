@@ -48,16 +48,22 @@ func (t *VolatilityTask) Execute(ctx context.Context, db *gorm.DB, symbol string
 		return nil, fmt.Errorf("无效的时间窗口配置: %s, %w", timeWindow, err)
 	}
 
+	// 计算时间过滤条件（最近N天的数据）
+	// 为了确保能获取足够的历史数据进行计算，我们设置一个较大的时间窗口
+	maxDataAge := 7 * 24 * time.Hour // 7天
+	minTime := time.Now().Add(-maxDataAge)
+	
 	// 查询K线数据
 	query := fmt.Sprintf(`
 		SELECT id, interval_type, open_time, close_time, open_price, high_price, low_price, close_price 
 		FROM %s 
 		WHERE interval_type = ? 
+		AND open_time > ?
 		ORDER BY open_time DESC 
 		LIMIT ?
 	`, "`"+symbol+"`") // 使用MySQL的反引号语法
 
-	rows, err := db.Raw(query, interval, requiredDataCount+10).Rows() // 多取一些数据，以防需要
+	rows, err := db.Raw(query, interval, minTime, requiredDataCount+10).Rows() // 多取一些数据，以防需要
 	if err != nil {
 		logging.Logger.WithError(err).WithField("symbol", symbol).Debug("查询K线数据失败")
 		return nil, err

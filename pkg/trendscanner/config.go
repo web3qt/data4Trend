@@ -26,9 +26,10 @@ type TrendScannerConfig struct {
 	} `yaml:"ma"`
 
 	Scan struct {
-		Workers   int    `yaml:"workers"`
-		Interval  string `yaml:"interval"`
-		CSVOutput string `yaml:"csv_output"`
+		Workers        int    `yaml:"workers"`
+		Interval       string `yaml:"interval"`
+		CSVOutput      string `yaml:"csv_output"`
+		MaxDataAgeHours int   `yaml:"max_data_age_hours"`
 	} `yaml:"scan"`
 
 	Trend struct {
@@ -125,6 +126,7 @@ func DefaultConfig() *TrendScannerConfig {
 	config.Scan.Workers = 4
 	config.Scan.Interval = "1h"
 	config.Scan.CSVOutput = "trend_results"
+	config.Scan.MaxDataAgeHours = 24
 	
 	// 趋势条件默认配置
 	config.Trend.CheckPoints = []string{"10m", "30m", "1h", "4h", "1d"}

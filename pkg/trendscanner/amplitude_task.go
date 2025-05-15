@@ -52,17 +52,23 @@ func (t *AmplitudeTask) Execute(ctx context.Context, db *gorm.DB, symbol string)
 	if queryLimit < 6 {
 		queryLimit = 6 // 至少取6个点，确保有足够数据
 	}
+	
+	// 计算时间过滤条件（最近N天的数据）
+	// 为了确保能获取足够的历史数据进行计算，我们设置一个较大的时间窗口
+	maxDataAge := 3 * 24 * time.Hour // 3天
+	minTime := time.Now().Add(-maxDataAge)
 
 	// 查询K线数据
 	query := fmt.Sprintf(`
 		SELECT id, interval_type, open_time, close_time, open_price, high_price, low_price, close_price 
 		FROM %s 
 		WHERE interval_type = ? 
+		AND open_time > ?
 		ORDER BY open_time DESC 
 		LIMIT ?
 	`, "`"+symbol+"`") // 使用MySQL的反引号语法
 
-	rows, err := db.Raw(query, interval, queryLimit).Rows()
+	rows, err := db.Raw(query, interval, minTime, queryLimit).Rows()
 	if err != nil {
 		logging.Logger.WithError(err).WithField("symbol", symbol).Debug("查询K线数据失败")
 		return nil, err

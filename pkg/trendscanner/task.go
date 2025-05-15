@@ -135,4 +135,17 @@ func (t *BaseTask) GetConfigDuration(key string, defaultVal time.Duration) time.
 		}
 	}
 	return defaultVal
+}
+
+// IsToday 判断给定的时间是否是今天
+func IsToday(t time.Time) bool {
+	now := time.Now()
+	year1, month1, day1 := now.Date()
+	year2, month2, day2 := t.Date()
+	return year1 == year2 && month1 == month2 && day1 == day2
+}
+
+// IsRecent 判断给定的时间是否在指定的小时范围内
+func IsRecent(t time.Time, hours int) bool {
+	return time.Since(t) <= time.Duration(hours)*time.Hour
 } 
