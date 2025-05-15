@@ -36,6 +36,15 @@ type TrendScannerConfig struct {
 		RequireStrictUp  bool     `yaml:"require_strict_up"`
 		ConsecutiveKLines int     `yaml:"consecutive_klines"`
 	} `yaml:"trend"`
+
+	// 新增任务配置
+	Tasks map[string]TaskConfig `yaml:"tasks"`
+}
+
+// TaskConfig 表示一个任务的配置
+type TaskConfig struct {
+	Enabled bool                   `yaml:"enabled"`
+	Config  map[string]interface{} `yaml:"config"`
 }
 
 // LoadConfig 从文件加载配置
@@ -122,13 +131,38 @@ func DefaultConfig() *TrendScannerConfig {
 	config.Trend.RequireStrictUp = false
 	config.Trend.ConsecutiveKLines = 10
 	
+	// 默认任务配置
+	config.Tasks = make(map[string]TaskConfig)
+	
+	// 添加振幅任务默认配置
+	config.Tasks["amplitude"] = TaskConfig{
+		Enabled: true,
+		Config: map[string]interface{}{
+			"timeWindow":        "1h",
+			"minAmplitude":      10.0,
+			"interval":          "15m",
+			"requiredDataCount": 4,
+		},
+	}
+	
+	// 添加波动率任务默认配置
+	config.Tasks["volatility"] = TaskConfig{
+		Enabled: true,
+		Config: map[string]interface{}{
+			"minVolatility":     3.0,
+			"timeWindow":        "1d",
+			"interval":          "15m",
+			"requiredDataCount": 96,
+		},
+	}
+	
 	return config
 }
 
 // validateConfig 验证配置的有效性
 func validateConfig(config *TrendScannerConfig) error {
 	// 验证扫描间隔
-	_, err := time.ParseDuration(config.Scan.Interval)
+	_, err := parseIntervalDuration(config.Scan.Interval)
 	if err != nil {
 		return fmt.Errorf("无效的扫描间隔: %s", config.Scan.Interval)
 	}
@@ -158,7 +192,7 @@ func validateConfig(config *TrendScannerConfig) error {
 
 // GetScanInterval 获取扫描间隔的Duration类型
 func (c *TrendScannerConfig) GetScanInterval() time.Duration {
-	interval, err := time.ParseDuration(c.Scan.Interval)
+	interval, err := parseIntervalDuration(c.Scan.Interval)
 	if err != nil {
 		// 如果解析失败，返回默认值1小时
 		return 1 * time.Hour
@@ -171,7 +205,7 @@ func (c *TrendScannerConfig) GetCheckPointDurations() []time.Duration {
 	durations := make([]time.Duration, 0, len(c.Trend.CheckPoints))
 	
 	for _, cp := range c.Trend.CheckPoints {
-		d, err := time.ParseDuration(cp)
+		d, err := parseIntervalDuration(cp)
 		if err != nil {
 			// 跳过无效的时间点
 			continue

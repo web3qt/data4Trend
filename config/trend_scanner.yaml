@@ -29,3 +29,23 @@ trend:
     - 1d     # 1天前 (96个15分钟K线)
   require_strict_up: false   # 是否要求严格上升（true）或者允许平稳（false）
   consecutive_klines: 20     # 要求连续多少根K线运行在MA线之上 
+
+# 任务配置
+tasks:
+  # 振幅任务配置
+  amplitude:
+    enabled: true
+    config:
+      timeWindow: "1h"        # 时间窗口
+      minAmplitude: 10.0      # 最小振幅百分比
+      interval: "15m"         # K线间隔
+      requiredDataCount: 4    # 需要的数据点数量(1小时/15分钟=4个K线)
+
+  # 波动率任务配置
+  volatility:
+    enabled: true
+    config:
+      minVolatility: 3.0      # 最小波动率阈值（百分比）
+      timeWindow: "1d"        # 计算波动率的时间窗口
+      interval: "15m"         # K线间隔
+      requiredDataCount: 96   # 需要的数据点数量(1天/15分钟=96个K线) 
