@@ -1,11 +1,13 @@
 package logging
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/sirupsen/logrus"
 	"github.com/web3qt/data4Trend/config"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 // Logger 是全局日志对象，使用Entry类型以支持WithFields方法
@@ -55,14 +57,27 @@ func InitLogger(cfg *config.LogConfig) {
 		if err := os.MkdirAll(logDir, 0755); err != nil {
 			baseLogger.WithError(err).Warn("创建日志目录失败，使用标准输出")
 		} else {
-			file, err := os.OpenFile(cfg.OutputPath,
-				os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-			if err == nil {
-				baseLogger.SetOutput(file)
-				baseLogger.Info("日志输出已设置到文件: " + cfg.OutputPath)
-			} else {
-				baseLogger.WithError(err).Warn("无法打开日志文件，使用标准输出")
+			// 使用lumberjack进行日志轮转
+			lumber := &lumberjack.Logger{
+				Filename:   cfg.OutputPath,
+				MaxSize:    cfg.MaxSize,    // 单个文件最大大小（MB）
+				MaxAge:     cfg.MaxAge,     // 文件保留天数
+				MaxBackups: cfg.MaxBackups, // 最大备份数量
+				Compress:   cfg.Compress,   // 压缩备份文件
+				LocalTime:  true,           // 使用本地时间
 			}
+			
+			// 创建多输出Writer，同时输出到文件和控制台
+			multiWriter := io.MultiWriter(lumber, os.Stdout)
+			baseLogger.SetOutput(multiWriter)
+			
+			baseLogger.WithFields(logrus.Fields{
+				"file":        cfg.OutputPath,
+				"max_size":    cfg.MaxSize,
+				"max_age":     cfg.MaxAge,
+				"max_backups": cfg.MaxBackups,
+				"compress":    cfg.Compress,
+			}).Info("日志轮转已配置")
 		}
 	}
 

@@ -407,9 +407,20 @@ func (m *SymbolManager) discoverNewSymbols() {
 	
 	var result []string
 	
-	if apiKey == "" || secretKey == "" {
-		log.Printf("API密钥未设置，将使用默认币种列表进行更新")
-		// 使用常见交易对作为默认列表
+	// 币安的24小时价格变动信息API是公开的，不需要API密钥
+	// 直接使用Binance API获取所有币种
+	log.Printf("正在从币安API获取所有数字货币...")
+	client := binance.NewClient(apiKey, secretKey)
+	
+	// 获取币安所有数字货币
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	
+	// 获取24小时价格变动信息，包含市值信息
+	tickers, err := client.NewListPriceChangeStatsService().Do(ctx)
+	if err != nil {
+		log.Printf("获取24小时价格变动信息失败: %v，将使用备用币种列表", err)
+		// 只有在API调用失败时才使用备用列表
 		result = []string{
 			"BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT",
 			"DOGEUSDT", "SOLUSDT", "DOTUSDT", "MATICUSDT", "LTCUSDT",
@@ -417,30 +428,8 @@ func (m *SymbolManager) discoverNewSymbols() {
 			"TRXUSDT", "XLMUSDT", "VETUSDT", "ICPUSDT", "FILUSDT",
 			"THETAUSDT", "XMRUSDT", "FTMUSDT", "ALGOUSDT", "HBARUSDT",
 		}
+		log.Printf("使用备用币种列表进行更新，包含%d个币种", len(result))
 	} else {
-		// 有API密钥，使用Binance API获取
-		client := binance.NewClient(apiKey, secretKey)
-		
-		// 获取前200个市值最大的币种
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		
-		// 获取24小时价格变动信息，包含市值信息
-		tickers, err := client.NewListPriceChangeStatsService().Do(ctx)
-		if err != nil {
-			log.Printf("获取24小时价格变动信息失败: %v", err)
-			// 使用备用列表
-			result = []string{
-				"BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT",
-				"DOGEUSDT", "SOLUSDT", "DOTUSDT", "MATICUSDT", "LTCUSDT",
-				"AVAXUSDT", "LINKUSDT", "ATOMUSDT", "UNIUSDT", "ETCUSDT",
-				"TRXUSDT", "XLMUSDT", "VETUSDT", "ICPUSDT", "FILUSDT",
-				"THETAUSDT", "XMRUSDT", "FTMUSDT", "ALGOUSDT", "HBARUSDT",
-			}
-			log.Printf("使用备用币种列表进行更新，包含%d个币种", len(result))
-			return
-		}
-		
 		log.Printf("成功获取到 %d 个交易对信息", len(tickers))
 		
 		// 过滤USDT交易对并排序
@@ -461,16 +450,13 @@ func (m *SymbolManager) discoverNewSymbols() {
 			return vi > vj
 		})
 		
-		// 取前200个交易对
-		count := 200
-		if count > len(usdtPairs) {
-			count = len(usdtPairs)
-		}
-		
-		result = make([]string, count)
-		for i := 0; i < count; i++ {
+		// 获取所有USDT交易对，不限制数量
+		result = make([]string, len(usdtPairs))
+		for i := 0; i < len(usdtPairs); i++ {
 			result[i] = usdtPairs[i].Symbol
 		}
+		
+		log.Printf("成功准备了%d个币种进行配置更新", len(result))
 	}
 	
 	// 检查是否需要更新

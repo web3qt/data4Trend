@@ -1277,6 +1277,78 @@ func (b *BinanceCollector) FetchTopCryptocurrencies(ctx context.Context, limit i
 	return result, nil
 }
 
+// FetchAllCryptocurrencies 获取币安所有数字货币
+func (b *BinanceCollector) FetchAllCryptocurrencies(ctx context.Context) ([]string, error) {
+	logging.Logger.Info("获取币安所有数字货币")
+	fmt.Println("尝试获取币安所有数字货币...")
+	
+	// 直接尝试获取24小时价格变动信息，包含所有交易对信息
+	tickers, err := b.Client.NewListPriceChangeStatsService().Do(ctx)
+	if err != nil {
+		logging.Logger.WithError(err).Error("获取24小时价格变动信息失败")
+		fmt.Printf("API调用失败: %v\n", err)
+		
+		// 使用默认列表作为备选方案
+		fmt.Println("使用备用交易对列表...")
+		defaultSymbols := []string{
+			"BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT",
+			"DOGEUSDT", "SOLUSDT", "DOTUSDT", "MATICUSDT", "LTCUSDT",
+			"AVAXUSDT", "LINKUSDT", "ATOMUSDT", "UNIUSDT", "ETCUSDT",
+			"TRXUSDT", "XLMUSDT", "VETUSDT", "ICPUSDT", "FILUSDT",
+			"THETAUSDT", "XMRUSDT", "FTMUSDT", "ALGOUSDT", "HBARUSDT",
+		}
+		return defaultSymbols, nil
+	}
+	
+	fmt.Printf("成功获取到%d个交易对信息\n", len(tickers))
+	logging.Logger.WithField("tickers_count", len(tickers)).Info("成功获取到交易对信息")
+	
+	// 过滤USDT交易对
+	usdtPairs := make([]*binance.PriceChangeStats, 0)
+	for _, ticker := range tickers {
+		if strings.HasSuffix(ticker.Symbol, "USDT") {
+			usdtPairs = append(usdtPairs, ticker)
+		}
+	}
+	
+	fmt.Printf("过滤出%d个USDT交易对\n", len(usdtPairs))
+	logging.Logger.WithField("usdt_pairs_count", len(usdtPairs)).Info("过滤出USDT交易对数量")
+	
+	// 按交易量排序（使用交易量作为市值的代理指标）- 仍然保持排序，但获取全部
+	sort.Slice(usdtPairs, func(i, j int) bool {
+		// 按交易量（QuoteVolume）降序排序
+		return usdtPairs[i].QuoteVolume > usdtPairs[j].QuoteVolume
+	})
+	
+	// 获取所有USDT交易对，不限制数量
+	result := make([]string, len(usdtPairs))
+	for i, ticker := range usdtPairs {
+		result[i] = ticker.Symbol
+		if i < 20 { // 只记录前20个的详细信息，避免日志过多
+			logging.Logger.WithFields(logrus.Fields{
+				"rank": i+1,
+				"symbol": ticker.Symbol,
+				"volume": ticker.QuoteVolume,
+			}).Debug("交易对信息")
+		}
+	}
+	
+	fmt.Printf("成功获取%d个交易对\n", len(result))
+	logging.Logger.WithFields(logrus.Fields{
+		"total_pairs": len(result),
+		"usdt_pairs": len(usdtPairs),
+	}).Info("已获取币安所有数字货币")
+	
+	// 记录获取到的前20个符号
+	if len(result) > 0 {
+		displayCount := min(20, len(result))
+		logging.Logger.WithField("top_20_symbols", strings.Join(result[:displayCount], ",")).Info("前20个交易对列表")
+		fmt.Printf("前20个交易对: %s\n", strings.Join(result[:displayCount], ", "))
+	}
+	
+	return result, nil
+}
+
 // min 返回两个int中较小的一个
 func min(a, b int) int {
 	if a < b {

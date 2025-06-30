@@ -24,6 +24,11 @@ type LogConfig struct {
 	Level      string `yaml:"level"`
 	JSONFormat bool   `yaml:"json_format"`
 	OutputPath string `yaml:"output_path"`
+	// 日志轮转配置
+	MaxSize    int  `yaml:"max_size"`    // 单个日志文件最大大小（MB）
+	MaxAge     int  `yaml:"max_age"`     // 日志文件保留天数
+	MaxBackups int  `yaml:"max_backups"` // 最大备份文件数量
+	Compress   bool `yaml:"compress"`    // 是否压缩备份文件
 }
 
 type BinanceConfig struct {

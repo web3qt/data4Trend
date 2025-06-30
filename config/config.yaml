@@ -24,3 +24,8 @@ log:
   level: "debug"
   json_format: false
   output_path: "logs/dataFeeder.log"
+  # 日志轮转配置
+  max_size: 250      # 单个日志文件最大大小（MB）
+  max_age: 7         # 日志文件保留天数
+  max_backups: 5     # 最多保留5个备份文件
+  compress: true     # 压缩备份文件以节省空间

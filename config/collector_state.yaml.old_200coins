@@ -1,0 +1,1802 @@
+states:
+    - symbol: BERAUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: USDPUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: RAYUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: KAITOUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: NFPUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: DEGOUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: DENTUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: VELODROMEUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: CVCUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: CAKEUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: AIXBTUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: VOXELUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: ICXUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: ANKRUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: WUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: XTZUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: FLUXUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: ILVUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: GPSUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: BOMEUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: SSVUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: C98USDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: USDCUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: 1000CHEEMSUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: IDUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: BATUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: ACXUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: ORCAUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: SXTUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: MDTUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: SYSUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: ARKUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: ATOMUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: HUMAUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: RADUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: WBTCUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: SAHARAUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: COMPUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: FARMUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: CATIUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: SUPERUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: RIFUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: SCRUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: WBETHUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: HEIUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: DUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: INJUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: NKNUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: TUTUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: ASRUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: BROCCOLI714USDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: FTTUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: IOTXUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: PARTIUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: BANDUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: NEXOUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: WAXPUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: UMAUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: LQTYUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: ARUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: ORDIUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: BSWUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: DATAUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: GMXUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: OGUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: CTSIUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: DEXEUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: ARPAUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: ADAUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: ZKUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: PHBUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: WIFUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: MAVUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: AMPUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: TRBUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: XECUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: KAIAUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: DOGEUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: MKRUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: LTOUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: SNXUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: 1000CATUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: ACMUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: BARUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: LAZIOUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: ARBUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: ONDOUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: BABYUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: BNBUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: 1INCHUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: ONTUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: DUSKUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: XVSUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: PENDLEUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: AWEUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: ARKMUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: REDUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: SPKUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: LUMIAUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: ZILUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: THEUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: SEIUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: GUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: EDUUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: FIOUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: USD1USDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: TLMUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: PEOPLEUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: ALICEUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: SXPUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: BTTCUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: JTOUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: SPELLUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: DFUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2024-01-03T07:59:59+08:00"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: BNSOLUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: JSTUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: IOUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: USTCUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: ACAUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: MOVEUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: QTUMUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: BMTUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: AAVEUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: SUIUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: LDOUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: PENGUUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: SANDUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: WOOUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: RUNEUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: ENSUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: MUBARAKUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: 1000SATSUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: SUNUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: HOTUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: PUNDIXUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: RDNTUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: PAXGUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: SCRTUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: RPLUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: JOEUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: KMDUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: DYDXUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: TRXUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: CKBUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: POLYXUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: SKLUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: ASTRUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: UNIUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: OSMOUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: MEUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: RLCUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: MBLUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: NEWTUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: RESOLVUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: ICPUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: GLMRUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: RENDERUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: ACEUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: DYMUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: KMNOUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: ETHUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: AUDIOUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: PERPUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: ALGOUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: MOVRUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: POLUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: STEEMUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: KAVAUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: TWTUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: KERNELUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: TURBOUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: EURUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: OMNIUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: LRCUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: ZROUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: INITUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: CVXUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: GASUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: DIAUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: STRAXUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: XLMUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: NMRUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: WCTUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: GALAUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: SYNUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: VTHOUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: QUICKUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: JUPUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: TONUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: EPICUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: STGUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: PYTHUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: ETCUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: BICOUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: CELRUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: AGLDUSDT
+      intervals:
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: IMXUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: DODOUSDT
+      intervals:
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: BTCUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+    - symbol: IOSTUSDT
+      intervals:
+        - interval: 15m
+          start_time: "2025-01-01T00:00:00Z"
+        - interval: 1d
+          start_time: "2023-01-01T00:00:00Z"
+        - interval: 1h
+          start_time: "2019-01-01T00:00:00Z"
+      updated_at: "2025-06-30T13:37:57+08:00"
+updated_at: "2025-06-30T13:37:57+08:00"

@@ -266,14 +266,14 @@ func main() {
 		}
 	}()
 
-	// 获取前200个市值最大的加密货币
-	fmt.Println("正在获取前200个市值最大的币种...")
-	topCryptos, err := collector.FetchTopCryptocurrencies(ctx, 200)
+	// 获取币安所有数字货币
+	fmt.Println("正在获取币安所有数字货币...")
+	allCryptos, err := collector.FetchAllCryptocurrencies(ctx)
 	if err != nil {
-		logging.Logger.WithError(err).Error("获取前200个市值最大的加密货币失败")
+		logging.Logger.WithError(err).Error("获取币安所有数字货币失败")
 		fmt.Printf("获取币种失败: %v\n", err)
 		// 使用备用币种列表
-		topCryptos = []string{
+		allCryptos = []string{
 			"BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", 
 			"DOGEUSDT", "SOLUSDT", "DOTUSDT", "MATICUSDT", "LTCUSDT",
 			"AVAXUSDT", "LINKUSDT", "ATOMUSDT", "UNIUSDT", "ETCUSDT",
@@ -283,10 +283,10 @@ func main() {
 	}
 	
 	// 如果获取到的交易对少于10个，使用备用列表
-	if len(topCryptos) < 10 {
+	if len(allCryptos) < 10 {
 		logging.Logger.Warn("获取到的交易对数量过少，将使用备用币种列表")
 		fmt.Println("获取到的交易对数量过少，将使用备用币种列表")
-		topCryptos = []string{
+		allCryptos = []string{
 			"BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", 
 			"DOGEUSDT", "SOLUSDT", "DOTUSDT", "MATICUSDT", "LTCUSDT",
 			"AVAXUSDT", "LINKUSDT", "ATOMUSDT", "UNIUSDT", "ETCUSDT",
@@ -294,8 +294,8 @@ func main() {
 			"THETAUSDT", "XMRUSDT", "FTMUSDT", "ALGOUSDT", "HBARUSDT"}
 	}
 	
-	logging.Logger.WithField("count", len(topCryptos)).Info("成功获取的加密货币数量")
-	fmt.Printf("成功准备了%d个币种\n", len(topCryptos))
+	logging.Logger.WithField("count", len(allCryptos)).Info("成功获取的加密货币数量")
+	fmt.Printf("成功准备了%d个币种\n", len(allCryptos))
 	
 	// 显示main组配置的时间信息
 	fmt.Println("时间配置信息:")
@@ -310,8 +310,8 @@ func main() {
 	}
 	
 	// 直接使用获取到的交易对和配置的时间启动收集器
-	symbols := make([]config.SymbolConfig, 0, len(topCryptos))
-	for _, symbol := range topCryptos {
+	symbols := make([]config.SymbolConfig, 0, len(allCryptos))
+	for _, symbol := range allCryptos {
 		cfg := config.SymbolConfig{
 			Symbol:    symbol,
 			Enabled:   true,
