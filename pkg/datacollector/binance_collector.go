@@ -149,8 +149,22 @@ func NewBinanceCollector(cfg *config.Config) *BinanceCollector {
 	}
 	client.HTTPClient = cfg.NewHTTPClient()
 
-	// 减少工作器数量，避免同时发出太多请求
-	workers := 3
+	// 从配置文件获取并发工作器数量，如果没有配置则使用默认值
+	workers := cfg.Performance.Workers
+	if workers <= 0 {
+		workers = 20 // 默认值
+	}
+	
+	// 从配置文件获取缓冲区大小
+	dataChannelBuffer := cfg.Performance.DataChannelBuffer
+	if dataChannelBuffer <= 0 {
+		dataChannelBuffer = 20000 // 默认值
+	}
+	
+	taskQueueSize := cfg.Performance.TaskQueueSize
+	if taskQueueSize <= 0 {
+		taskQueueSize = 2000 // 默认值
+	}
 
 	// 记录配置
 	logging.Logger.WithFields(logrus.Fields{
@@ -162,13 +176,13 @@ func NewBinanceCollector(cfg *config.Config) *BinanceCollector {
 
 	return &BinanceCollector{
 		Client:       client,
-		DataChan:     make(chan *types.KLineData, 5000), // 显著增大缓冲区
+		DataChan:     make(chan *types.KLineData, dataChannelBuffer), // 使用配置的缓冲区大小
 		Collectors:   make(map[string]map[string]*SymbolCollector),
 		config:       cfg,
 		workers:      workers,
 		workerPool:   make(chan struct{}, workers),
-		taskQueue:    make(chan CollectionTask, 500), // 减小任务队列容量以控制内存使用
-		lastSaveHour: -1,                              // 初始化为-1
+		taskQueue:    make(chan CollectionTask, taskQueueSize), // 使用配置的任务队列大小
+		lastSaveHour: -1,                                       // 初始化为-1
 	}
 }
 
@@ -699,7 +713,7 @@ func (b *BinanceCollector) scheduler(ctx context.Context) {
 
 	// 任务计数器，用于限制每次迭代中添加的任务数量
 	var tasksAdded int
-	var lastTaskTime time.Time
+	
 
 	logging.Logger.Info("任务调度器已启动")
 
@@ -787,11 +801,7 @@ func (b *BinanceCollector) scheduler(ctx context.Context) {
 						Priority:  collector.GetPriority(),
 					}
 					
-					// 限制任务添加频率
-					if tasksAdded > 0 && time.Since(lastTaskTime) < 100*time.Millisecond {
-						// 添加小延迟，避免短时间内添加太多任务
-						time.Sleep(100 * time.Millisecond)
-					}
+					// 移除延迟限制以加速任务添加
 					
 					// 更新收集器的上次收集时间
 					collector.UpdateLastCollect()
@@ -802,7 +812,6 @@ func (b *BinanceCollector) scheduler(ctx context.Context) {
 						return
 					case b.taskQueue <- task:
 						tasksAdded++
-						lastTaskTime = time.Now()
 						
 						logging.Logger.WithFields(logrus.Fields{
 							"symbol":     symbol,
@@ -818,13 +827,13 @@ func (b *BinanceCollector) scheduler(ctx context.Context) {
 						}).Warn("任务队列已满，跳过任务")
 					}
 					
-					// 每添加几个任务后暂停一下，避免短时间内添加太多任务
-					if tasksAdded%5 == 0 {
+					// 减少任务调度延迟以加速数据收集
+					if tasksAdded%20 == 0 {
 						select {
 						case <-ctx.Done():
 							return
-						case <-time.After(500 * time.Millisecond):
-							// 继续添加任务
+						case <-time.After(50 * time.Millisecond):
+							// 短暂暂停避免过载
 						}
 					}
 				}

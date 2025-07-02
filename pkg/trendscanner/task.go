@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"gorm.io/gorm"
+	"github.com/web3qt/data4Trend/pkg/datastore"
 )
 
 // ScanTask 定义了扫描任务的接口
@@ -13,7 +13,7 @@ type ScanTask interface {
 	Name() string
 	
 	// Execute 执行扫描任务，返回扫描结果
-	Execute(ctx context.Context, db *gorm.DB, symbol string) (*TaskResult, error)
+	Execute(ctx context.Context, store datastore.Store, symbol string) (*TaskResult, error)
 	
 	// IsEnabled 判断任务是否启用
 	IsEnabled() bool

@@ -2,10 +2,11 @@ binance:
   api_key: ""  # 不需要API密钥就可以获取公共K线数据
   secret_key: ""
 
-mysql:
+clickhouse:
   host: "localhost"
-  port: 3306
-  user: "root"
+  port: 9000
+  http_port: 8123
+  user: "default"
   password: "123456"
   database: "data4trend"
 
@@ -19,6 +20,13 @@ http:
   
 # 币种配置文件路径
 symbols_config_path: "config/symbols.yaml"
+
+# 性能配置
+performance:
+  workers: 20           # 并发工作器数量（建议10-30，根据网络和机器性能调整）
+  max_db_connections: 50  # 数据库最大连接数
+  data_channel_buffer: 20000  # 数据通道缓冲区大小
+  task_queue_size: 2000   # 任务队列容量
 
 log:
   level: "debug"

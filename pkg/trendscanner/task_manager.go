@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"gorm.io/gorm"
+	"github.com/web3qt/data4Trend/pkg/datastore"
 
 	"github.com/web3qt/data4Trend/pkg/logging"
 )
@@ -20,7 +20,7 @@ import (
 type TaskManager struct {
 	tasks          map[string]ScanTask
 	taskResults    map[string][]*TaskResult
-	db             *gorm.DB
+	store          datastore.Store
 	csvOutputDir   string
 	csvReporter    *CSVReporter // 添加统一CSV报告生成器
 	maxDataAgeHours int         // 数据最大有效期（小时）
@@ -28,14 +28,14 @@ type TaskManager struct {
 }
 
 // NewTaskManager 创建一个新的任务管理器
-func NewTaskManager(db *gorm.DB, csvOutputDir string, maxDataAgeHours int) *TaskManager {
+func NewTaskManager(store datastore.Store, csvOutputDir string, maxDataAgeHours int) *TaskManager {
 	// 创建统一CSV报告生成器
 	csvReporter := NewCSVReporter(csvOutputDir)
 	
 	return &TaskManager{
 		tasks:          make(map[string]ScanTask),
 		taskResults:    make(map[string][]*TaskResult),
-		db:             db,
+		store:          store,
 		csvOutputDir:   csvOutputDir,
 		csvReporter:    csvReporter,
 		maxDataAgeHours: maxDataAgeHours,
@@ -88,7 +88,7 @@ func (m *TaskManager) ExecuteTasks(ctx context.Context, symbol string) ([]*TaskR
 	
 	// 执行所有任务
 	for _, task := range tasks {
-		result, err := task.Execute(ctx, m.db, symbol)
+		result, err := task.Execute(ctx, m.store, symbol)
 		if err != nil {
 			logging.Logger.WithError(err).WithFields(logrus.Fields{
 				"task":   task.Name(),
@@ -147,7 +147,7 @@ func (m *TaskManager) ExecuteTask(ctx context.Context, taskName string, symbol s
 		return nil, fmt.Errorf("任务 %s 已禁用", taskName)
 	}
 	
-	result, err := task.Execute(ctx, m.db, symbol)
+	result, err := task.Execute(ctx, m.store, symbol)
 	if err != nil {
 		return nil, err
 	}

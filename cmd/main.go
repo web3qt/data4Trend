@@ -62,7 +62,7 @@ func main() {
 		logFatal("加载配置失败: %v", err)
 	}
 	fmt.Printf("配置加载成功，数据库: %s, API密钥设置: %v\n", 
-		cfg.MySQL.Database, cfg.Binance.APIKey != "")
+		cfg.ClickHouse.Database, cfg.Binance.APIKey != "")
 
 	// 创建binanceConfig
 	binanceConfig := &config.BinanceConfig{
@@ -116,24 +116,26 @@ func main() {
 
 	// 打印关键配置信息
 	logging.Logger.WithFields(logrus.Fields{
-		"host":     cfg.MySQL.Host,
-		"port":     cfg.MySQL.Port,
-		"user":     cfg.MySQL.User,
-		"database": cfg.MySQL.Database,
-	}).Info("MySQL配置")
+		"host":      cfg.ClickHouse.Host,
+		"port":      cfg.ClickHouse.Port,
+		"http_port": cfg.ClickHouse.HTTPPort,
+		"user":      cfg.ClickHouse.User,
+		"database":  cfg.ClickHouse.Database,
+	}).Info("ClickHouse配置")
 
-	mysqlCfg := &datastore.MySQLConfig{
-		Host:     cfg.MySQL.Host,
-		Port:     cfg.MySQL.Port,
-		User:     cfg.MySQL.User,
-		Password: cfg.MySQL.Password,
-		Database: cfg.MySQL.Database,
+	clickhouseCfg := &datastore.ClickHouseConfig{
+		Host:     cfg.ClickHouse.Host,
+		Port:     cfg.ClickHouse.Port,
+		HTTPPort: cfg.ClickHouse.HTTPPort,
+		User:     cfg.ClickHouse.User,
+		Password: cfg.ClickHouse.Password,
+		Database: cfg.ClickHouse.Database,
 	}
 
-	// 初始化MySQL存储
-	store, err := datastore.NewMySQLStore(mysqlCfg, nil) // 先不连接数据通道
+	// 初始化ClickHouse存储
+	store, err := datastore.NewClickHouseStore(clickhouseCfg, nil) // 先不连接数据通道
 	if err != nil {
-		logging.Logger.WithError(err).Fatal("初始化MySQL存储失败")
+		logging.Logger.WithError(err).Fatal("初始化ClickHouse存储失败")
 	}
 
 	// 创建API服务器，使用命令行指定的端口
@@ -151,16 +153,16 @@ func main() {
 
 	// 连接数据流
 	// 1. 收集器 -> 清洗器
-	// 2. 清洗器 -> MySQL存储和API服务器（通过分发通道）
+	// 2. 清洗器 -> ClickHouse存储和API服务器（通过分发通道）
 	apiChannel := server.GetInputChannel()
 
 	// 创建一个分发通道来复制清洗器的输出数据
-	dbChannel := make(chan *types.KLineData, 5000) // 增加MySQL存储通道的缓冲区大小
+	dbChannel := make(chan *types.KLineData, 5000) // 增加ClickHouse存储通道的缓冲区大小
 
-	// 设置MySQL存储的输入通道
+	// 设置ClickHouse存储的输入通道
 	store.SetInputChannel(dbChannel)
 
-	// 从清洗器分发数据到MySQL存储和API服务器
+	// 从清洗器分发数据到ClickHouse存储和API服务器
 	go func() {
 		// 创建缓存，用于存储因通道满而无法立即发送的数据
 		var dbBacklog []*types.KLineData

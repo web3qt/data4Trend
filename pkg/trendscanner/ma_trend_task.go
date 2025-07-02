@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"gorm.io/gorm"
+	"github.com/web3qt/data4Trend/pkg/datastore"
 
 	"github.com/web3qt/data4Trend/pkg/logging"
 )
@@ -27,24 +27,14 @@ func NewMATrendTask(scanner *TrendScanner) *MATrendTask {
 }
 
 // Execute 执行MA趋势扫描任务
-func (t *MATrendTask) Execute(ctx context.Context, db *gorm.DB, symbol string) (*TaskResult, error) {
+func (t *MATrendTask) Execute(ctx context.Context, store datastore.Store, symbol string) (*TaskResult, error) {
 	// 沿用原有scanSymbol方法的实现
 	s := t.scanner
 	
 	// 计算时间过滤条件（最近N天的数据）
 	// 为了确保能获取足够的历史数据进行计算，我们设置一个较大的时间窗口
 	maxDataAge := 10 * 24 * time.Hour // 10天，需要更长的历史数据计算MA
-	minTime := time.Now().Add(-maxDataAge)
-	
-	// 查询足够数量的K线数据来计算MA
-	query := fmt.Sprintf(`
-		SELECT id, interval_type, open_time, close_time, close_price 
-		FROM %s 
-		WHERE interval_type = ? 
-		AND open_time > ?
-		ORDER BY open_time DESC 
-		LIMIT ?
-	`, "`"+symbol+"`") // 使用MySQL的反引号语法
+	_ = time.Now().Add(-maxDataAge) // 注释：预留给后续过滤历史数据使用
 	
 	// 计算需要的K线数据数量
 	// 我们需要额外的K线来检查连续K线都在MA线上方
@@ -52,32 +42,22 @@ func (t *MATrendTask) Execute(ctx context.Context, db *gorm.DB, symbol string) (
 	maxOffset := s.getMaxCheckPointOffset()
 	requiredKLines := s.maPeriod + maxOffset + s.consecutiveKLines
 	
-	rows, err := db.Raw(query, s.interval, minTime, requiredKLines).Rows()
+	// 使用Store接口查询K线数据
+	klines, err := store.QueryKlines(ctx, symbol, s.interval, requiredKLines)
 	if err != nil {
 		logging.Logger.WithError(err).WithField("symbol", symbol).Debug("查询K线数据失败")
 		return nil, err
 	}
-	defer rows.Close()
 	
 	// 存储收盘价
 	var prices []float64
 	var times []time.Time
 	var closeTimeList []time.Time
 	
-	for rows.Next() {
-		var id int
-		var intervalType string
-		var openTime, closeTime time.Time
-		var closePrice float64
-		
-		if err := rows.Scan(&id, &intervalType, &openTime, &closeTime, &closePrice); err != nil {
-			logging.Logger.WithError(err).WithField("symbol", symbol).Debug("扫描K线数据失败")
-			return nil, err
-		}
-		
-		prices = append(prices, closePrice)
-		times = append(times, openTime)
-		closeTimeList = append(closeTimeList, closeTime)
+	for _, kline := range klines {
+		prices = append(prices, kline.ClosePrice)
+		times = append(times, kline.OpenTime)
+		closeTimeList = append(closeTimeList, kline.CloseTime)
 	}
 	
 	// 数据点不足以计算MA
@@ -246,42 +226,8 @@ func (t *MATrendTask) Execute(ctx context.Context, db *gorm.DB, symbol string) (
 		}
 	}
 	
-	// 保存到数据库
-	dbResult := &TrendResult{
-		Symbol:        symbol,
-		Interval:      s.interval,
-		FoundTime:     result.FoundTime,
-		MAPeriod:      s.maPeriod,
-		CurrentMA:     currentMA,
-		ConsistentUp:  true,
-		KLineTime:     latestKLineTime,
-		KLineEndTime:  latestKLineEndTime,
-		AboveMAKLines: aboveMACount,
-	}
-	
-	// 设置各个时间点的MA值
-	for _, duration := range s.checkPoints {
-		key := duration.String()
-		if val, ok := maValueMap[key]; ok {
-			switch key {
-			case "10m":
-				dbResult.MA10MinAgo = val
-			case "30m":
-				dbResult.MA30MinAgo = val
-			case "1h":
-				dbResult.MAHourAgo = val
-			case "4h":
-				dbResult.MA4HoursAgo = val
-			case "1d", "24h":
-				dbResult.MADayAgo = val
-			}
-		}
-	}
-	
-	// 保存到数据库
-	if err := s.SaveResult(dbResult); err != nil {
-		logging.Logger.WithError(err).WithField("symbol", symbol).Error("保存趋势结果到数据库失败")
-	}
+	// 注意：保存到数据库的逻辑已经通过TaskManager和CSVReporter处理
+	// 这里不需要额外的保存操作，TaskResult会被自动保存到CSV文件
 	
 	// 记录MA上升趋势
 	logging.Logger.WithFields(logrus.Fields{

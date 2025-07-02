@@ -9,15 +9,15 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"gorm.io/gorm"
 
+	"github.com/web3qt/data4Trend/pkg/datastore"
 	"github.com/web3qt/data4Trend/pkg/logging"
 )
 
 // TrendScanner 趋势扫描器
 type TrendScanner struct {
 	ctx               context.Context
-	db                *gorm.DB
+	store             datastore.Store
 	interval          string
 	maPeriod          int
 	workers           int
@@ -34,10 +34,10 @@ type TrendScanner struct {
 }
 
 // NewTrendScanner 创建新的趋势扫描器
-func NewTrendScanner(ctx context.Context, db *gorm.DB, opt ...Option) *TrendScanner {
+func NewTrendScanner(ctx context.Context, store datastore.Store, opt ...Option) *TrendScanner {
 	s := &TrendScanner{
 		ctx:          ctx,
-		db:           db,
+		store:        store,
 		interval:     "15m", // 默认使用15分钟K线
 		maPeriod:     81,    // 默认MA81
 		workers:      4,     // 默认4个工作协程
@@ -53,10 +53,10 @@ func NewTrendScanner(ctx context.Context, db *gorm.DB, opt ...Option) *TrendScan
 }
 
 // NewTrendScannerWithConfig 使用配置文件创建趋势扫描器
-func NewTrendScannerWithConfig(ctx context.Context, db *gorm.DB, config *TrendScannerConfig) *TrendScanner {
+func NewTrendScannerWithConfig(ctx context.Context, store datastore.Store, config *TrendScannerConfig) *TrendScanner {
 	s := &TrendScanner{
 		ctx:               ctx,
-		db:                db,
+		store:             store,
 		interval:          config.MA.Interval,
 		maPeriod:          config.MA.Period,
 		workers:           config.Scan.Workers,
@@ -70,7 +70,7 @@ func NewTrendScannerWithConfig(ctx context.Context, db *gorm.DB, config *TrendSc
 	}
 	
 	// 初始化任务管理器
-	s.taskManager = NewTaskManager(db, config.Scan.CSVOutput, config.Scan.MaxDataAgeHours)
+	s.taskManager = NewTaskManager(store, config.Scan.CSVOutput, config.Scan.MaxDataAgeHours)
 	
 	// 初始化统一CSV报告生成器
 	s.csvReporter = NewCSVReporter(config.Scan.CSVOutput)
@@ -158,11 +158,7 @@ func WithConsecutiveKLines(count int) Option {
 
 // Start 启动趋势扫描器
 func (s *TrendScanner) Start() {
-	// 创建结果表
-	if err := s.createResultsTable(); err != nil {
-		logging.Logger.WithError(err).Error("创建结果表失败")
-		return
-	}
+	// ClickHouse不需要单独创建结果表，因为数据直接保存到CSV文件
 
 	// 确保CSV输出目录存在
 	if s.csvOutputDir != "" {
@@ -281,25 +277,25 @@ func (s *TrendScanner) executeScan(symbolCh chan<- string) {
 	logging.Logger.WithField("elapsed_time", elapsedTime.String()).Info("扫描任务分发完成")
 }
 
-// TrendResult 表示趋势扫描结果
+// TrendResult 表示趋势扫描结果 (已弃用，使用TaskResult替代)
 type TrendResult struct {
-	ID           uint      `gorm:"primaryKey"`
-	Symbol       string    `gorm:"index:idx_symbol"`
-	Interval     string    `gorm:"type:varchar(10)"`
-	FoundTime    time.Time `gorm:"index:idx_found_time"` // 发现时间，保留但不作为主要参考
-	MAPeriod     int       `gorm:"type:int"`
-	CurrentMA    float64   `gorm:"type:decimal(20,8)"`
-	MA10MinAgo   float64   `gorm:"type:decimal(20,8)"`
-	MA30MinAgo   float64   `gorm:"type:decimal(20,8)"`
-	MAHourAgo    float64   `gorm:"type:decimal(20,8)"`
-	MA4HoursAgo  float64   `gorm:"type:decimal(20,8)"`
-	MADayAgo     float64   `gorm:"type:decimal(20,8)"`
-	ConsistentUp bool      `gorm:"type:tinyint(1)"`
-	KLineTime    time.Time `gorm:"index:idx_kline_time"` // K线开始时间
-	KLineEndTime time.Time `gorm:"index:idx_kline_end_time"` // K线结束时间
-	AboveMAKLines int       `gorm:"type:int"`
+	ID           uint      
+	Symbol       string    
+	Interval     string    
+	FoundTime    time.Time // 发现时间，保留但不作为主要参考
+	MAPeriod     int       
+	CurrentMA    float64   
+	MA10MinAgo   float64   
+	MA30MinAgo   float64   
+	MAHourAgo    float64   
+	MA4HoursAgo  float64   
+	MADayAgo     float64   
+	ConsistentUp bool      
+	KLineTime    time.Time // K线开始时间
+	KLineEndTime time.Time // K线结束时间
+	AboveMAKLines int      
 	
-	CreatedAt time.Time `gorm:"autoCreateTime"`
+	CreatedAt time.Time 
 }
 
 // TableName 指定表名
@@ -309,24 +305,18 @@ func (TrendResult) TableName() string {
 
 // getAllSymbols 获取数据库中所有可用的交易对列表
 func (s *TrendScanner) getAllSymbols() ([]string, error) {
-	// 查询数据库中所有的表（交易对）
-	rows, err := s.db.Raw("SHOW TABLES").Rows()
+	// 使用Store接口获取可用交易对
+	ctx := context.Background()
+	availableSymbols, err := s.store.GetAvailableSymbols(ctx)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 	
 	var symbols []string
-	for rows.Next() {
-		var tableName string
-		if err := rows.Scan(&tableName); err != nil {
-			return nil, err
+	for _, symbolInfo := range availableSymbols {
+		if symbol, ok := symbolInfo["symbol"].(string); ok {
+			symbols = append(symbols, symbol)
 		}
-		// 跳过非交易对表格
-		if tableName == "trend_results" {
-			continue
-		}
-		symbols = append(symbols, tableName)
 	}
 	
 	return symbols, nil
@@ -346,34 +336,10 @@ func calculateMA(prices []float64) float64 {
 	return sum / float64(len(prices))
 }
 
-// createResultsTable 创建或确保存在结果表
-func (s *TrendScanner) createResultsTable() error {
-	// 使用GORM自动迁移创建表结构
-	err := s.db.AutoMigrate(&TrendResult{})
-	if err != nil {
-		return fmt.Errorf("创建趋势结果表失败: %w", err)
-	}
-	return nil
-}
+// createResultsTable 已弃用，ClickHouse不需要表结构迁移
 
 // SaveResult 保存趋势扫描结果到数据库
-func (s *TrendScanner) SaveResult(result *TrendResult) error {
-	// 使用GORM创建记录
-	if err := s.db.Create(result).Error; err != nil {
-		return fmt.Errorf("保存趋势结果失败: %w", err)
-	}
-	logging.Logger.WithFields(logrus.Fields{
-		"symbol":        result.Symbol,
-		"interval":      result.Interval,
-		"ma_period":     result.MAPeriod,
-		"current_ma":    result.CurrentMA,
-		"ma_hour_ago":   result.MAHourAgo,
-		"kline_start":   result.KLineTime.Format(time.RFC3339),
-		"kline_end":     result.KLineEndTime.Format(time.RFC3339),
-		"consistent_up": result.ConsistentUp,
-	}).Info("发现上升趋势")
-	return nil
-}
+// SaveResult 已弃用，现在使用TaskResult和CSV报告生成器
 
 // saveResultToCSV 保存趋势扫描结果到CSV文件
 func (s *TrendScanner) saveResultToCSV(result *TrendResult) error {

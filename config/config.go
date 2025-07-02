@@ -37,16 +37,25 @@ type BinanceConfig struct {
 	Symbols   []SymbolConfig `yaml:"symbols"`
 }
 
+type PerformanceConfig struct {
+	Workers           int `yaml:"workers"`
+	MaxDBConnections  int `yaml:"max_db_connections"`
+	DataChannelBuffer int `yaml:"data_channel_buffer"`
+	TaskQueueSize     int `yaml:"task_queue_size"`
+}
+
 type Config struct {
-	Log     LogConfig     `yaml:"log"`
-	Binance BinanceConfig `yaml:"binance"`
-	MySQL   struct {
+	Log         LogConfig         `yaml:"log"`
+	Binance     BinanceConfig     `yaml:"binance"`
+	Performance PerformanceConfig `yaml:"performance"`
+	ClickHouse  struct {
 		Host     string `yaml:"host"`
 		Port     int    `yaml:"port"`
+		HTTPPort int    `yaml:"http_port"`
 		User     string `yaml:"user"`
 		Password string `yaml:"password"`
 		Database string `yaml:"database"`
-	} `yaml:"mysql"`
+	} `yaml:"clickhouse"`
 	HTTP struct {
 		Timeout int    `yaml:"timeout"`
 		Proxy   string `yaml:"proxy"`
@@ -146,6 +155,30 @@ func LoadConfig(path ...string) (*Config, error) {
 	cfg.Binance.APIKey = os.Getenv("BINANCE_API_KEY")
 	cfg.Binance.SecretKey = os.Getenv("BINANCE_SECRET_KEY")
 
+	// 从环境变量获取ClickHouse配置
+	if host := os.Getenv("CLICKHOUSE_HOST"); host != "" {
+		cfg.ClickHouse.Host = host
+	}
+	if port := os.Getenv("CLICKHOUSE_PORT"); port != "" {
+		if portNum, err := fmt.Sscanf(port, "%d", &cfg.ClickHouse.Port); err == nil && portNum == 1 {
+			// port parsed successfully
+		}
+	}
+	if httpPort := os.Getenv("CLICKHOUSE_HTTP_PORT"); httpPort != "" {
+		if portNum, err := fmt.Sscanf(httpPort, "%d", &cfg.ClickHouse.HTTPPort); err == nil && portNum == 1 {
+			// http port parsed successfully
+		}
+	}
+	if user := os.Getenv("CLICKHOUSE_USER"); user != "" {
+		cfg.ClickHouse.User = user
+	}
+	if password := os.Getenv("CLICKHOUSE_PASSWORD"); password != "" {
+		cfg.ClickHouse.Password = password
+	}
+	if database := os.Getenv("CLICKHOUSE_DATABASE"); database != "" {
+		cfg.ClickHouse.Database = database
+	}
+
 	// 确保每个交易对的配置都有默认值
 	for i := range cfg.Binance.Symbols {
 		// 确保启用状态
@@ -167,8 +200,8 @@ func LoadConfig(path ...string) (*Config, error) {
 		}
 	}
 
-	fmt.Printf("配置加载成功: MySQL数据库=%s, Binance交易对数量=%d\n",
-		cfg.MySQL.Database, len(cfg.Binance.Symbols))
+	fmt.Printf("配置加载成功: ClickHouse数据库=%s, Binance交易对数量=%d\n",
+		cfg.ClickHouse.Database, len(cfg.Binance.Symbols))
 
 	return &cfg, nil
 }
@@ -186,25 +219,33 @@ func DefaultConfig() *Config {
 			SecretKey: "",
 			Symbols:   []SymbolConfig{},
 		},
-		MySQL: struct {
+		ClickHouse: struct {
 			Host     string `yaml:"host"`
 			Port     int    `yaml:"port"`
+			HTTPPort int    `yaml:"http_port"`
 			User     string `yaml:"user"`
 			Password string `yaml:"password"`
 			Database string `yaml:"database"`
 		}{
-			Host:     "",
-			Port:     0,
-			User:     "",
+			Host:     "localhost",
+			Port:     9000,
+			HTTPPort: 8123,
+			User:     "default",
 			Password: "",
-			Database: "",
+			Database: "data4trend",
 		},
 		HTTP: struct {
 			Timeout int    `yaml:"timeout"`
 			Proxy   string `yaml:"proxy"`
 		}{
-			Timeout: 0,
+			Timeout: 30,
 			Proxy:   "",
+		},
+		Performance: PerformanceConfig{
+			Workers:           10,
+			MaxDBConnections:  50,
+			DataChannelBuffer: 10000,
+			TaskQueueSize:     1000,
 		},
 		SymbolsConfigPath:  "",
 		symbolManager:      nil,

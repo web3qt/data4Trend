@@ -7,15 +7,30 @@ import (
 
 // KLineData 定义了K线数据结构
 type KLineData struct {
-	OpenTime  time.Time
-	CloseTime time.Time
-	Open      float64
-	High      float64
-	Low       float64
-	Close     float64
-	Volume    float64
+	OpenTime   time.Time
+	CloseTime  time.Time
+	OpenPrice  float64
+	HighPrice  float64
+	LowPrice   float64
+	ClosePrice float64
+	Volume     float64
+	Symbol     string
+	Interval   string
+	
+	// 兼容性字段
+	Open  float64
+	High  float64
+	Low   float64
+	Close float64
+}
+
+// DataGap 表示数据缺口
+type DataGap struct {
 	Symbol    string
 	Interval  string
+	StartTime time.Time
+	EndTime   time.Time
+	MissingCount int
 }
 
 // KlinesService 定义了K线服务接口

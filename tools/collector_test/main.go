@@ -42,17 +42,19 @@ func main() {
 			SecretKey: "",
 			Symbols:   []config.SymbolConfig{},
 		},
-		MySQL: struct {
+		ClickHouse: struct {
 			Host     string `yaml:"host"`
 			Port     int    `yaml:"port"`
+			HTTPPort int    `yaml:"http_port"`
 			User     string `yaml:"user"`
 			Password string `yaml:"password"`
 			Database string `yaml:"database"`
 		}{
 			Host:     "localhost",
-			Port:     3306,
-			User:     "root",
-			Password: "123456",
+			Port:     9000,
+			HTTPPort: 8123,
+			User:     "default",
+			Password: "",
 			Database: "data4trend",
 		},
 		HTTP: struct {

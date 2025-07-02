@@ -25,7 +25,7 @@ var upgrader = websocket.Upgrader{
 // Server 定义API服务器
 type Server struct {
 	router        *gin.Engine
-	mysqlStore    *datastore.MySQLStore
+	store         datastore.Store
 	port          int
 	subscriptions map[string]map[string][]*websocket.Conn // symbol -> interval -> connections
 	subsMutex     sync.RWMutex
@@ -36,7 +36,7 @@ type Server struct {
 }
 
 // NewServer 创建新的API服务器
-func NewServer(store *datastore.MySQLStore) *Server {
+func NewServer(store datastore.Store) *Server {
 	r := gin.Default()
 
 	// 配置CORS
@@ -51,7 +51,7 @@ func NewServer(store *datastore.MySQLStore) *Server {
 
 	s := &Server{
 		router:        r,
-		mysqlStore:    store,
+		store:         store,
 		port:          8080,
 		subscriptions: make(map[string]map[string][]*websocket.Conn),
 		klineBuffer:   make(map[string]map[string][]*types.KLineData),
@@ -349,6 +349,13 @@ func (s *Server) handleGetKlines(c *gin.Context) {
 	interval := c.Query("interval")
 	limit := c.DefaultQuery("limit", "100")
 
+	// 添加调试日志
+	logging.Logger.WithFields(logrus.Fields{
+		"symbol":   symbol,
+		"interval": interval,
+		"limit":    limit,
+	}).Debug("收到K线查询请求")
+
 	if symbol == "" || interval == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "symbol and interval are required"})
 		return
@@ -361,11 +368,19 @@ func (s *Server) handleGetKlines(c *gin.Context) {
 	}
 
 	// 从数据库获取K线数据
-	data, err := s.mysqlStore.QueryKlines(c.Request.Context(), symbol, interval, limitInt)
+	data, err := s.store.QueryKlines(c.Request.Context(), symbol, interval, limitInt)
 	if err != nil {
+		logging.Logger.WithError(err).Error("查询K线数据失败")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	// 添加调试日志
+	logging.Logger.WithFields(logrus.Fields{
+		"symbol":   symbol,
+		"interval": interval,
+		"count":    len(data),
+	}).Debug("查询K线数据成功")
 
 	c.JSON(http.StatusOK, gin.H{"data": data})
 }
@@ -394,7 +409,7 @@ func (s *Server) handleGetHistory(c *gin.Context) {
 	}
 
 	// 从数据库获取历史数据
-	data, err := s.mysqlStore.QueryHistoryKlines(c.Request.Context(), symbol, interval, startTime, endTime)
+	data, err := s.store.QueryHistoryKlines(c.Request.Context(), symbol, interval, startTime, endTime)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -432,7 +447,7 @@ func (s *Server) handleGetStats(c *gin.Context) {
 	s.subsMutex.RUnlock()
 
 	// 获取数据库统计
-	dbStats, err := s.mysqlStore.GetStats(c.Request.Context())
+	dbStats, err := s.store.GetStats(c.Request.Context())
 	if err == nil {
 		stats["database"] = dbStats
 	}
@@ -443,7 +458,7 @@ func (s *Server) handleGetStats(c *gin.Context) {
 // handleGetSymbols 处理获取支持的交易对请求
 func (s *Server) handleGetSymbols(c *gin.Context) {
 	// 从数据库获取支持的交易对
-	symbols, err := s.mysqlStore.GetAvailableSymbols(c.Request.Context())
+	symbols, err := s.store.GetAvailableSymbols(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -483,7 +498,7 @@ func (s *Server) handleGetMultiKlines(c *gin.Context) {
 			defer wg.Done()
 
 			// 从数据库获取K线数据
-			data, err := s.mysqlStore.QueryKlines(c.Request.Context(), sym, interval, limitInt)
+			data, err := s.store.QueryKlines(c.Request.Context(), sym, interval, limitInt)
 			if err == nil && len(data) > 0 {
 				mu.Lock()
 				result[sym] = data
@@ -526,8 +541,8 @@ func (s *Server) handleCheckGaps(c *gin.Context) {
 		endTime = time.Now()
 	}
 
-	// 调用MySQL存储的检查缺口方法
-	gaps, err := s.mysqlStore.CheckDataGaps(c.Request.Context(), symbol, interval, startTime, endTime)
+	// 调用ClickHouse存储的检查缺口方法
+	gaps, err := s.store.CheckDataGaps(c.Request.Context(), symbol, interval, startTime, endTime)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -583,7 +598,7 @@ func (s *Server) handleFixGaps(c *gin.Context) {
 	}
 
 	// 检查是否有缺口
-	gaps, err := s.mysqlStore.CheckDataGaps(c.Request.Context(), req.Symbol, req.Interval, startTime, endTime)
+	gaps, err := s.store.CheckDataGaps(c.Request.Context(), req.Symbol, req.Interval, startTime, endTime)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -604,13 +619,13 @@ func (s *Server) handleFixGaps(c *gin.Context) {
 		fixedGaps := 0
 
 		for _, gap := range gaps {
-			err := s.mysqlStore.FixDataGap(ctx, req.Symbol, req.Interval, gap.Start, gap.End)
+			err := s.store.FixDataGap(ctx, req.Symbol, req.Interval, gap.StartTime, gap.EndTime)
 			if err != nil {
 				logging.Logger.WithFields(logrus.Fields{
 					"symbol":   req.Symbol,
 					"interval": req.Interval,
-					"start":    gap.Start,
-					"end":      gap.End,
+					"start":    gap.StartTime,
+					"end":      gap.EndTime,
 					"error":    err,
 				}).Error("修复数据缺口失败")
 			} else {
@@ -695,7 +710,7 @@ func (s *Server) handleDeleteKlines(c *gin.Context) {
 	}
 
 	// 执行删除操作
-	err = s.mysqlStore.DeleteKLinesInTimeRange(c.Request.Context(), symbol, interval, startTime, endTime)
+	err = s.store.DeleteKLinesInTimeRange(c.Request.Context(), symbol, interval, startTime, endTime)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": fmt.Sprintf("删除K线数据失败: %v", err),
