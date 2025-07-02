@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-Data4Trend 是一个高性能加密货币市场数据收集和趋势分析系统，专为量化交易应用设计。系统自动获取市值前200的加密货币，从Binance交易所实时获取K线数据，经过处理后存储到MySQL数据库，并提供API接口供其他应用程序访问。同时，系统包含趋势扫描器组件，可基于移动平均线(MA)策略对收集的数据进行趋势分析。
+Data4Trend 是一个高性能加密货币市场数据收集和趋势分析系统，专为量化交易应用设计。系统自动获取市值前200的加密货币，从Binance交易所实时获取K线数据，经过处理后存储到ClickHouse数据库，并提供API接口供其他应用程序访问。同时，系统包含趋势扫描器组件，可基于移动平均线(MA)策略对收集的数据进行趋势分析。
 
 ## 功能特性
 
@@ -10,7 +10,7 @@ Data4Trend 是一个高性能加密货币市场数据收集和趋势分析系统
 - **环境变量配置**：通过环境变量配置Binance API密钥，增强安全性
 - **自定义开始时间**：可通过环境变量指定数据收集的开始时间
 - **多交易对支持**：同时收集多个加密货币交易对的K线数据
-- **三种时间周期**：支持15分钟、4小时、1天三种关键时间周期
+- **三种时间周期**：支持15分钟、1小时、1天三种关键时间周期
 - **历史数据回填**：支持从指定时间点开始回填历史数据
 - **数据清洗**：对原始数据进行验证和清洗，确保数据质量
 - **实时API**：提供RESTful API和WebSocket接口，支持实时数据查询和推送
@@ -24,7 +24,7 @@ Data4Trend 是一个高性能加密货币市场数据收集和趋势分析系统
 
 ```
 +----------------+       +---------------+       +---------------+
-| Binance API    |<----->| DataCollector |<----->| MySQL         |
+| Binance API    |<----->| DataCollector |<----->| ClickHouse    |
 | (加密货币K线)   |       | (Go routine)  |       | (数据存储)     |
 +----------------+       +---------------+       +---------------+
                                 ｜
@@ -47,14 +47,14 @@ Data4Trend 是一个高性能加密货币市场数据收集和趋势分析系统
 
 - **DataCollector**：负责从Binance API获取K线数据，自动获取市值前200的加密货币
 - **DataProcessor**：对收集到的数据进行清洗和验证，确保数据质量
-- **MySQL存储**：将处理后的数据存储到MySQL数据库，按交易对分表存储
+- **ClickHouse存储**：将处理后的数据存储到ClickHouse数据库，高性能时序数据库
 - **API服务器**：提供RESTful API和WebSocket接口，支持数据查询和实时推送
 - **TrendScanner**：独立运行的趋势分析引擎，基于MA线策略对币种进行趋势扫描
 
 ## 环境要求
 
 - Go 1.18+
-- MySQL 5.7+
+- ClickHouse 22.0+
 - Binance API访问权限（可选，公共API不需要密钥）
 - Docker & Docker Compose（可选，用于容器化部署）
 
@@ -79,20 +79,17 @@ go build -o trendScanner cmd/trendscanner/main.go
 
 ### 数据库管理
 
-系统提供多个数据库管理脚本：
+系统使用ClickHouse作为数据存储，建议使用Docker Compose快速启动：
 
 ```bash
-# 重置本地数据库（清空所有数据并重新创建数据库）
-./reset_local_db.sh
+# 启动ClickHouse数据库
+docker-compose up -d clickhouse
 
-# 仅初始化数据库（如果不存在）
-./setup_mysql.sh
+# 查看ClickHouse日志
+docker-compose logs -f clickhouse
 
-# 清空数据库中所有表
-./clean_db.sh
-
-# 使用Docker环境重置数据库
-./reset_docker_db.sh
+# 连接到ClickHouse CLI
+docker exec -it data4trend_clickhouse_1 clickhouse-client
 ```
 
 ### 环境变量配置
@@ -107,12 +104,13 @@ export BINANCE_SECRET_KEY="your_secret_key"
 # 设置数据收集开始时间（RFC3339格式，可选，默认为30天前）
 export COLLECTION_START_TIME="2022-01-01T00:00:00Z"
 
-# 数据库配置（可选，如果与默认值不同）
-export MYSQL_HOST="localhost"
-export MYSQL_PORT="3306"
-export MYSQL_USER="root"
-export MYSQL_PASSWORD="123456"
-export MYSQL_DATABASE="data4trend"
+# ClickHouse数据库配置（可选，如果与默认值不同）
+export CLICKHOUSE_HOST="localhost"
+export CLICKHOUSE_PORT="9000"
+export CLICKHOUSE_HTTP_PORT="8123"
+export CLICKHOUSE_USER="default"
+export CLICKHOUSE_PASSWORD=""
+export CLICKHOUSE_DATABASE="data4trend"
 ```
 
 ### 运行数据采集服务
@@ -179,11 +177,12 @@ docker run -d \
   -e BINANCE_API_KEY="your_api_key" \
   -e BINANCE_SECRET_KEY="your_secret_key" \
   -e COLLECTION_START_TIME="2022-01-01T00:00:00Z" \
-  -e MYSQL_HOST=mysql \
-  -e MYSQL_PORT=3306 \
-  -e MYSQL_USER=root \
-  -e MYSQL_PASSWORD=123456 \
-  -e MYSQL_DATABASE=data4trend \
+  -e CLICKHOUSE_HOST=clickhouse \
+  -e CLICKHOUSE_PORT=9000 \
+  -e CLICKHOUSE_HTTP_PORT=8123 \
+  -e CLICKHOUSE_USER=default \
+  -e CLICKHOUSE_PASSWORD=123456 \
+  -e CLICKHOUSE_DATABASE=data4trend \
   -p 8080:8080 \
   --name datafeeder \
   data-feeder
@@ -210,11 +209,12 @@ binance:
   api_key: ""  # 从环境变量BINANCE_API_KEY读取
   secret_key: ""  # 从环境变量BINANCE_SECRET_KEY读取
 
-mysql:
+clickhouse:
   host: "localhost"
-  port: 3306
-  user: "root"
-  password: "123456"
+  port: 9000
+  http_port: 8123
+  user: "default"
+  password: ""
   database: "data4trend"
 
 server:
@@ -260,9 +260,10 @@ settings:
 # 数据库配置
 database:
   host: localhost
-  port: 3306
-  user: root
-  password: 123456
+  port: 9000
+  http_port: 8123
+  user: default
+  password: ""
   name: data4trend
 
 # MA线配置
@@ -308,7 +309,7 @@ export COLLECTION_START_TIME="2022-01-01T00:00:00Z"
 系统为每个交易对创建单独的数据表，表名为交易对名称的小写形式（例如BTCUSDT对应表名为`btc`）。每个表包含以下字段：
 
 - `id`: 自动递增的主键
-- `interval_type`: 时间周期（15m、4h、1d）
+- `interval_type`: 时间周期（15m、1h、1d）
 - `open_time`: 开盘时间
 - `close_time`: 收盘时间
 - `open_price`: 开盘价格
@@ -332,7 +333,7 @@ GET /api/v1/klines?symbol=BTCUSDT&interval=15m&limit=100&start_time=167252760000
 参数说明：
 
 - `symbol`: 交易对名称（必填）
-- `interval`: 时间周期，如15m, 4h, 1d（必填）
+- `interval`: 时间周期，如15m, 1h, 1d（必填）
 - `limit`: 返回的数据点数量，默认500，最大1000
 - `start_time`: 开始时间戳（毫秒）
 - `end_time`: 结束时间戳（毫秒）
@@ -356,7 +357,7 @@ GET /api/v1/klines?symbol=BTCUSDT&interval=15m&limit=100&start_time=167252760000
 #### 获取多交易对K线数据
 
 ```
-GET /api/v1/multi_klines?symbols=BTCUSDT,ETHUSDT&interval=4h&limit=10
+GET /api/v1/multi_klines?symbols=BTCUSDT,ETHUSDT&interval=1h&limit=10
 ```
 
 #### 获取支持的交易对列表
@@ -388,7 +389,7 @@ Content-Type: application/json
 #### 删除指定时间范围内的数据
 
 ```
-DELETE /api/v1/klines?symbol=BTCUSDT&interval=4h&start_time=2023-01-01T00:00:00Z&end_time=2023-01-31T23:59:59Z&confirm=true
+DELETE /api/v1/klines?symbol=BTCUSDT&interval=1h&start_time=2023-01-01T00:00:00Z&end_time=2023-01-31T23:59:59Z&confirm=true
 ```
 
 ### WebSocket API
@@ -437,10 +438,10 @@ GET /api/v1/ws
 
 ### 无法连接到数据库
 
-- 检查数据库连接配置是否正确
-- 确认MySQL服务是否运行中
-- 检查数据库用户权限
-- 检查是否已经运行`setup_mysql.sh`或`reset_local_db.sh`创建数据库
+- 检查ClickHouse数据库连接配置是否正确
+- 确认ClickHouse服务是否运行中
+- 检查数据库用户权限和网络连接
+- 使用`docker-compose up -d clickhouse`启动ClickHouse服务
 
 ### 无法获取币种数据
 
@@ -450,25 +451,29 @@ GET /api/v1/ws
 
 ### 数据表为空或数据不完整
 
-使用检查脚本确认数据收集状态：
+使用API接口检查数据收集状态：
 
 ```bash
-go run check_db.go
+# 检查支持的交易对列表
+curl "http://localhost:8080/api/v1/symbols"
+
+# 查询特定交易对的数据
+curl "http://localhost:8080/api/v1/klines?symbol=BTCUSDT&interval=1h&limit=10"
 ```
 
 如果看到某个币种的数据不完整，可以尝试：
 
 ```bash
-# 检查特定币种（如BTC）
-go run check_btc.go
+# 检查数据缺口
+curl "http://localhost:8080/api/v1/check_gaps?symbol=BTCUSDT&interval=1h"
 
 # 删除并重新收集数据
-curl -X DELETE "http://localhost:8080/api/v1/klines?symbol=BTCUSDT&interval=4h&start_time=2023-01-01T00:00:00Z&end_time=2023-01-31T23:59:59Z&confirm=true"
+curl -X DELETE "http://localhost:8080/api/v1/klines?symbol=BTCUSDT&interval=1h&start_time=2023-01-01T00:00:00Z&end_time=2023-01-31T23:59:59Z&confirm=true"
 ```
 
 ### 趋势扫描器不产生结果
 
-- 检查数据库中是否有足够的历史数据（至少需要MA周期+连续K线数量的数据点）
+- 检查ClickHouse数据库中是否有足够的历史数据（至少需要MA周期+连续K线数量的数据点）
 - 确认`trend_results`目录是否存在并可写
 - 查看日志文件检查错误信息
 

@@ -378,7 +378,7 @@ func (s *ClickHouseStore) ensureTableExists(tableName string) error {
 	}
 
 	if count == 0 {
-		// 创建表 - 使用与主表相同的结构
+		// 创建表 - 使用Float64类型以兼容Go的float64
 		createTableSQL := fmt.Sprintf(`
 		CREATE TABLE IF NOT EXISTS %s
 		(
@@ -387,17 +387,17 @@ func (s *ClickHouseStore) ensureTableExists(tableName string) error {
 			interval_type String,
 			open_time DateTime64(3),
 			close_time DateTime64(3),
-			open_price Decimal64(8),
-			high_price Decimal64(8),
-			low_price Decimal64(8),
-			close_price Decimal64(8),
-			volume Decimal64(8),
+			open_price Float64,
+			high_price Float64,
+			low_price Float64,
+			close_price Float64,
+			volume Float64,
 			created_at DateTime64(3) DEFAULT now64(),
 			updated_at DateTime64(3) DEFAULT now64()
 		)
 		ENGINE = MergeTree()
 		PARTITION BY toYYYYMM(open_time)
-		ORDER BY (interval_type, open_time)
+		ORDER BY (symbol, interval_type, open_time)
 		SETTINGS index_granularity = 8192
 		`, tableName)
 
