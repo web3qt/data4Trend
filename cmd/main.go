@@ -132,10 +132,24 @@ func main() {
 		Database: cfg.ClickHouse.Database,
 	}
 
-	// 初始化ClickHouse存储
-	store, err := datastore.NewClickHouseStore(clickhouseCfg, nil) // 先不连接数据通道
-	if err != nil {
-		logging.Logger.WithError(err).Fatal("初始化ClickHouse存储失败")
+	// 检查是否使用按时间级别分表存储
+	useIntervalTables := os.Getenv("USE_INTERVAL_TABLES") == "true"
+	
+	var store datastore.Store
+	if useIntervalTables {
+		logging.Logger.Info("使用按时间级别分表的ClickHouse存储")
+		intervalStore, err := datastore.NewIntervalClickHouseStore(clickhouseCfg, nil)
+		if err != nil {
+			logging.Logger.WithError(err).Fatal("初始化按时间级别分表的ClickHouse存储失败")
+		}
+		store = intervalStore
+	} else {
+		logging.Logger.Info("使用统一表的ClickHouse存储")
+		unifiedStore, err := datastore.NewClickHouseStore(clickhouseCfg, nil)
+		if err != nil {
+			logging.Logger.WithError(err).Fatal("初始化ClickHouse存储失败")
+		}
+		store = unifiedStore
 	}
 
 	// 创建API服务器，使用命令行指定的端口
