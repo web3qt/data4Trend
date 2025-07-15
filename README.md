@@ -239,8 +239,8 @@ INIT_DB=true ./scripts/start-materialized.sh
 # 指定API服务器端口
 ./bin/dataFeeder -port 8080
 
-# 使用提供的脚本
-./run.sh
+# 或者直接运行
+./bin/dataFeeder
 ```
 
 ### 运行趋势扫描器
@@ -266,9 +266,6 @@ go run check_db.go
 
 # 检查特定交易对（如BTC）的数据
 go run check_btc.go
-
-# 清空数据库中所有表
-go run clean_db.go
 ```
 
 ### Docker部署
