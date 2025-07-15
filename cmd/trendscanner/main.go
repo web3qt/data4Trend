@@ -10,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/web3qt/data4Trend/config"
+	"github.com/web3qt/data4Trend/internal/types"
 	"github.com/web3qt/data4Trend/pkg/datastore"
 	"github.com/web3qt/data4Trend/pkg/logging"
 	"github.com/web3qt/data4Trend/pkg/trendscanner"
@@ -95,15 +96,19 @@ func main() {
 		trendCfg.Trend.ConsecutiveKLines = *consecutiveKLines
 	}
 
-	// 连接ClickHouse数据库
+	// 连接ClickHouse数据库（物化视图架构）
 	logging.Logger.WithFields(logrus.Fields{
 		"host":     clickhouseCfg.Host,
 		"port":     clickhouseCfg.Port,
 		"user":     clickhouseCfg.User,
 		"database": clickhouseCfg.Database,
-	}).Info("连接ClickHouse数据库")
+	}).Info("连接ClickHouse数据库（物化视图架构）")
 
-	store, err := datastore.NewClickHouseStore(clickhouseCfg, nil)
+	// 创建数据通道（趋势扫描器不需要写入数据）
+	dataChan := make(chan *types.KLineData, 1)
+	close(dataChan) // 立即关闭，因为不需要写入
+
+	store, err := datastore.NewMaterializedClickHouseStore(clickhouseCfg, dataChan)
 	if err != nil {
 		logging.Logger.WithError(err).Fatal("连接ClickHouse数据库失败")
 	}
@@ -153,4 +158,4 @@ func main() {
 	scanner.Stop()
 
 	logging.Logger.Info("应用程序已关闭")
-} 
+}

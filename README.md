@@ -4,15 +4,27 @@
 
 Data4Trend 是一个高性能加密货币市场数据收集和趋势分析系统，专为量化交易应用设计。系统自动获取市值前200的加密货币，从Binance交易所实时获取K线数据，经过处理后存储到ClickHouse数据库，并提供API接口供其他应用程序访问。同时，系统包含趋势扫描器组件，可基于移动平均线(MA)策略对收集的数据进行趋势分析。
 
+**🚀 新架构升级**: 项目已重构为基于ClickHouse最佳实践的**物化视图架构**，采用单一事实表 + 物化视图自动聚合的设计模式，提供更高的存储效率和查询性能。详见 [物化视图架构指南](MATERIALIZED_VIEWS_GUIDE.md)。
+
 ## 功能特性
 
+### 🏗️ 架构特性
+- **物化视图架构**：基于ClickHouse最佳实践，单一事实表 + 物化视图自动聚合
+- **存储优化**：只存储1分钟原始数据，其他时间粒度自动聚合生成
+- **查询性能**：预聚合数据提供毫秒级查询响应
+- **数据一致性**：单一数据源确保所有时间粒度的数据一致性
+- **实时更新**：物化视图自动、实时地更新聚合数据
+
+### 📊 数据收集
 - **市值前200排名**：自动获取并跟踪市值排名前200的加密货币
 - **环境变量配置**：通过环境变量配置Binance API密钥，增强安全性
 - **自定义开始时间**：可通过环境变量指定数据收集的开始时间
 - **多交易对支持**：同时收集多个加密货币交易对的K线数据
-- **三种时间周期**：支持15分钟、1小时、1天三种关键时间周期
+- **多时间周期**：支持1分钟、5分钟、15分钟、1小时、4小时、1天等时间周期
 - **历史数据回填**：支持从指定时间点开始回填历史数据
 - **数据清洗**：对原始数据进行验证和清洗，确保数据质量
+
+### 🔌 接口服务
 - **实时API**：提供RESTful API和WebSocket接口，支持实时数据查询和推送
 - **数据完整性检查**：提供工具检测和修复数据缺口
 - **数据删除功能**：支持删除指定时间范围内的数据
@@ -58,6 +70,49 @@ Data4Trend 是一个高性能加密货币市场数据收集和趋势分析系统
 - Binance API访问权限（可选，公共API不需要密钥）
 - Docker & Docker Compose（可选，用于容器化部署）
 
+## 快速开始（物化视图架构）
+
+### 🚀 一键启动
+
+```bash
+# 克隆代码库
+git clone https://github.com/web3qt/data4Trend.git
+cd data4Trend
+
+# 安装依赖
+go mod download
+
+# 构建程序
+go build -o bin/data-collector-materialized ./cmd/data-collector-materialized
+go build -o bin/trendscanner ./cmd/trendscanner
+
+# 测试物化视图架构
+./scripts/test-materialized.sh
+
+# 启动数据收集器（物化视图架构）
+INIT_DB=true ./scripts/start-materialized.sh
+```
+
+### 📋 详细步骤
+
+1. **初始化数据库**
+```bash
+# 初始化ClickHouse表结构
+./bin/data-collector-materialized -init-db
+```
+
+2. **启动数据收集**
+```bash
+# 启动数据收集器
+./bin/data-collector-materialized -config=config/symbols.yaml
+```
+
+3. **启动趋势分析**
+```bash
+# 启动趋势扫描器
+./bin/trendscanner -config=config/trend_scanner.yaml
+```
+
 ## 安装与部署
 
 ### 源码编译
@@ -70,11 +125,14 @@ cd data4Trend
 # 安装依赖
 go mod download
 
-# 编译数据采集器
-go build -o dataFeeder cmd/main.go
+# 编译数据采集器（物化视图架构）
+go build -o bin/data-collector-materialized ./cmd/data-collector-materialized
 
 # 编译趋势扫描器
-go build -o trendScanner cmd/trendscanner/main.go
+go build -o bin/trendscanner ./cmd/trendscanner
+
+# 编译传统数据采集器（兼容性）
+go build -o bin/dataFeeder cmd/main.go
 ```
 
 ### 数据库管理
@@ -115,15 +173,33 @@ export CLICKHOUSE_DATABASE="data4trend"
 
 ### 运行数据采集服务
 
+#### 🆕 物化视图架构（推荐）
+
+```bash
+# 初始化数据库表结构
+./bin/data-collector-materialized -init-db
+
+# 启动数据收集器
+./bin/data-collector-materialized -config config/symbols.yaml
+
+# 使用启动脚本（自动初始化）
+INIT_DB=true ./scripts/start-materialized.sh
+
+# 测试架构功能
+./scripts/test-materialized.sh
+```
+
+#### 传统架构（兼容性）
+
 ```bash
 # 直接运行
-./dataFeeder
+./bin/dataFeeder
 
 # 使用配置文件运行
-./dataFeeder -config config/symbols.yaml
+./bin/dataFeeder -config config/symbols.yaml
 
 # 指定API服务器端口
-./dataFeeder -port 8080
+./bin/dataFeeder -port 8080
 
 # 使用提供的脚本
 ./run.sh
@@ -131,17 +207,15 @@ export CLICKHOUSE_DATABASE="data4trend"
 
 ### 运行趋势扫描器
 
-趋势扫描器是一个独立的组件，可以与数据采集服务同时运行：
+趋势扫描器是一个独立的组件，可以与数据采集服务同时运行。**已更新为兼容物化视图架构**：
 
 ```bash
-# 使用默认配置文件运行
-./trendScanner
+# 使用默认配置文件运行（兼容物化视图架构）
+./bin/trendscanner
 
-# 指定配置文件
-./trendScanner -config config/trend_scanner.yaml
+# 使用自定义配置文件
+./bin/trendscanner -config config/trend_scanner.yaml
 
-# 覆盖特定配置项
-./trendScanner -ma-period 81 -interval 15m -workers 4
 ```
 
 ### 数据库状态检查与管理
@@ -200,7 +274,7 @@ docker-compose logs -f
 
 ## 配置说明
 
-系统配置文件位于`config/`目录下：
+系统配置文件位于`config/`目录下。**物化视图架构使用相同的配置文件，无需额外配置**：
 
 ### 主配置文件 (config.yaml)
 
@@ -306,7 +380,38 @@ export COLLECTION_START_TIME="2022-01-01T00:00:00Z"
 
 ## 数据存储结构
 
-系统为每个交易对创建单独的数据表，表名为交易对名称的小写形式（例如BTCUSDT对应表名为`btc`）。每个表包含以下字段：
+### 🆕 物化视图架构（推荐）
+
+新架构采用单一事实表 + 物化视图的设计模式：
+
+**原始数据表 (`kline_raw`)**：
+- `symbol`: 交易对符号（如 'BTCUSDT'）
+- `open_time`: 开盘时间（1分钟粒度）
+- `close_time`: 收盘时间
+- `open_price`: 开盘价格
+- `high_price`: 最高价格
+- `low_price`: 最低价格
+- `close_price`: 收盘价格
+- `volume`: 交易量
+- `quote_volume`: 计价货币交易量
+- `trades_count`: 交易笔数
+- `taker_buy_volume`: 主动买入量
+- `taker_buy_quote_volume`: 主动买入计价货币量
+
+**聚合表（自动生成）**：
+- `kline_5m`: 5分钟K线数据
+- `kline_15m`: 15分钟K线数据
+- `kline_1h`: 1小时K线数据
+- `kline_4h`: 4小时K线数据
+- `kline_1d`: 1天K线数据
+
+**统一查询视图 (`v_kline_unified`)**：
+- 提供跨时间粒度的统一查询接口
+- 自动路由到对应的聚合表
+
+### 传统架构（兼容性）
+
+传统架构为每个交易对创建单独的数据表，表名为交易对名称的小写形式（例如BTCUSDT对应表名为`btc`）。每个表包含以下字段：
 
 - `id`: 自动递增的主键
 - `interval_type`: 时间周期（15m、1h、1d）
@@ -320,7 +425,7 @@ export COLLECTION_START_TIME="2022-01-01T00:00:00Z"
 
 ## API接口
 
-系统提供以下API接口：
+系统提供以下API接口。**物化视图架构完全兼容现有API，无需修改客户端代码**：
 
 ### REST API
 
@@ -477,14 +582,38 @@ curl -X DELETE "http://localhost:8080/api/v1/klines?symbol=BTCUSDT&interval=1h&s
 - 确认`trend_results`目录是否存在并可写
 - 查看日志文件检查错误信息
 
-## 开发扩展
+## 📚 相关文档
+
+- **[物化视图架构指南](MATERIALIZED_VIEWS_GUIDE.md)** - 详细的架构说明和最佳实践
+- **[迁移指南](MIGRATION_GUIDE.md)** - 从传统架构迁移到物化视图架构的步骤
+- **[监控使用指南](MONITOR_USAGE.md)** - 系统监控和性能优化
+
+## 🔧 开发扩展
 
 开发者可以根据需要扩展系统功能：
 
+### 物化视图架构扩展
+- 在 <mcfile name="materialized_clickhouse_store.go" path="pkg/datastore/materialized_clickhouse_store.go"></mcfile> 中扩展存储功能
+- 修改 <mcfile name="clickhouse-init-materialized-views.sql" path="scripts/clickhouse-init-materialized-views.sql"></mcfile> 添加新的聚合表
+- 在 <mcfile name="main.go" path="cmd/data-collector-materialized/main.go"></mcfile> 中调整数据收集逻辑
+
+### 通用扩展
 - 在`pkg/datacollector`中修改以支持其他交易所
 - 在`pkg/dataprocessor`中添加更多数据处理逻辑
 - 在`pkg/apiserver`中扩展API功能
 - 在`pkg/trendscanner`中添加新的趋势分析算法
+
+## 🚀 架构优势总结
+
+**物化视图架构相比传统架构的优势**：
+
+| 特性 | 传统架构 | 物化视图架构 |
+|------|----------|-------------|
+| 存储效率 | 重复存储多个时间粒度 | 只存储1分钟原始数据 |
+| 查询性能 | 需要实时聚合计算 | 预聚合，毫秒级响应 |
+| 数据一致性 | 多表可能不一致 | 单一数据源保证一致性 |
+| 维护复杂度 | 需要管理多个表 | 自动化聚合，维护简单 |
+| 扩展性 | 添加新粒度需要修改代码 | 只需添加物化视图 |
 
 ## 许可证
 
