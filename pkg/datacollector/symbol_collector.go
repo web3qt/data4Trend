@@ -40,7 +40,9 @@ type IntervalCollector struct {
 }
 
 // NewSymbolCollector 创建新的交易对收集器
-func NewSymbolCollector(service types.KlinesService, cfg config.SymbolConfig, taskQueue chan<- CollectionTask, dataChan chan<- *types.KLineData) (*SymbolCollector, error) {
+// NewSymbolCollector 创建新的交易对收集器
+// savedStates: 可选的保存状态，用于断点续传。格式为 map[interval]time.Time
+func NewSymbolCollector(service types.KlinesService, cfg config.SymbolConfig, taskQueue chan<- CollectionTask, dataChan chan<- *types.KLineData, savedStates map[string]time.Time) (*SymbolCollector, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	logging.Logger.WithFields(logrus.Fields{
@@ -62,34 +64,60 @@ func NewSymbolCollector(service types.KlinesService, cfg config.SymbolConfig, ta
 		cfg.Intervals = []string{"1h"}
 	}
 
-	// 物化视图架构：统一的起始时间处理
+	// 断点续传：优先使用保存的状态，然后使用配置文件，最后使用默认值
 	startTimes := make(map[string]time.Time)
 
-	// 如果没有设置起始时间，使用当前时间减去24小时
+	// 如果没有设置起始时间，使用当前时间减去24小时作为默认值
 	defaultStartTime := time.Now().Add(-24 * time.Hour)
 
-	// 解析统一的起始时间
-	var startTime time.Time
+	// 解析配置文件中的统一起始时间
+	var configStartTime time.Time
 	if cfg.StartTime != "" {
 		if t, err := time.Parse(time.RFC3339, cfg.StartTime); err == nil {
-			startTime = t
-			logging.Logger.WithField("time", t).Debug("成功解析起始时间")
+			configStartTime = t
+			logging.Logger.WithField("time", t).Debug("成功解析配置文件起始时间")
 		} else {
-			logging.Logger.WithError(err).Warn("解析起始时间失败，使用默认时间")
-			startTime = defaultStartTime
+			logging.Logger.WithError(err).Warn("解析配置文件起始时间失败，使用默认时间")
+			configStartTime = defaultStartTime
 		}
 	} else {
 		logging.Logger.WithField("symbol", cfg.Symbol).Warn("未配置起始时间，使用默认时间")
-		startTime = defaultStartTime
+		configStartTime = defaultStartTime
 	}
 
-	// 为所有时间周期设置相同的起始时间
+	// 为所有时间周期设置起始时间，优先级：保存状态 > 配置文件 > 默认值
 	for _, interval := range cfg.Intervals {
-		startTimes[interval] = startTime
-		logging.Logger.WithFields(logrus.Fields{
-			"interval": interval,
-			"time":     startTime,
-		}).Debug("设置K线起始时间")
+		var finalStartTime time.Time
+		
+		// 检查是否有保存的状态（断点续传）
+		if savedStates != nil {
+			if savedTime, exists := savedStates[interval]; exists {
+				finalStartTime = savedTime
+				logging.Logger.WithFields(logrus.Fields{
+					"symbol":   cfg.Symbol,
+					"interval": interval,
+					"time":     savedTime.Format(time.RFC3339),
+				}).Info("使用保存的状态恢复断点续传")
+			} else {
+				// 没有保存状态，使用配置文件时间
+				finalStartTime = configStartTime
+				logging.Logger.WithFields(logrus.Fields{
+					"symbol":   cfg.Symbol,
+					"interval": interval,
+					"time":     configStartTime.Format(time.RFC3339),
+				}).Debug("使用配置文件起始时间")
+			}
+		} else {
+			// 没有保存状态，使用配置文件时间
+			finalStartTime = configStartTime
+			logging.Logger.WithFields(logrus.Fields{
+				"symbol":   cfg.Symbol,
+				"interval": interval,
+				"time":     configStartTime.Format(time.RFC3339),
+			}).Debug("使用配置文件起始时间")
+		}
+		
+		startTimes[interval] = finalStartTime
 	}
 
 	logging.Logger.WithFields(logrus.Fields{

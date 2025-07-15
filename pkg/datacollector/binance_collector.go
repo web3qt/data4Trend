@@ -252,6 +252,13 @@ func (b *BinanceCollector) Start(ctx context.Context) error {
 func (b *BinanceCollector) StartWithSymbols(ctx context.Context, symbols []config.SymbolConfig) error {
 	logging.Logger.WithField("count", len(symbols)).Info("开始初始化Binance收集器")
 
+	// 加载保存的收集器状态（断点续传）
+	savedStates, err := b.config.LoadCollectorState()
+	if err != nil {
+		logging.Logger.WithError(err).Warn("加载收集器状态失败，将使用配置文件中的起始时间")
+		savedStates = make(map[string]map[string]time.Time)
+	}
+
 	// 启动任务调度器
 	go b.scheduler(ctx)
 
@@ -295,9 +302,19 @@ func (b *BinanceCollector) StartWithSymbols(ctx context.Context, symbols []confi
 			logging.Logger.WithField("symbol", symbolCfg.Symbol).Warn("交易对没有设置开始时间")
 		}
 
+		// 获取该交易对的保存状态（如果存在）
+		var symbolSavedStates map[string]time.Time
+		if symbolStates, exists := savedStates[symbolCfg.Symbol]; exists {
+			symbolSavedStates = symbolStates
+			logging.Logger.WithFields(logrus.Fields{
+				"symbol": symbolCfg.Symbol,
+				"states": len(symbolStates),
+			}).Info("找到交易对的保存状态")
+		}
+
 		// 使用适配器创建服务
 		service := NewBinanceKlinesService(b.Client)
-		collector, err := NewSymbolCollector(service, symbolCfg, b.taskQueue, b.DataChan)
+		collector, err := NewSymbolCollector(service, symbolCfg, b.taskQueue, b.DataChan, symbolSavedStates)
 		if err != nil {
 			logging.Logger.WithFields(logrus.Fields{
 				"symbol": symbolCfg.Symbol,
@@ -861,9 +878,9 @@ func (b *BinanceCollector) AddSymbol(symbolCfg config.SymbolConfig) error {
 		return nil
 	}
 
-	// 创建新的交易对收集器
+	// 创建新的交易对收集器（动态添加时不使用保存状态）
 	service := NewBinanceKlinesService(b.Client)
-	collector, err := NewSymbolCollector(service, symbolCfg, b.taskQueue, b.DataChan)
+	collector, err := NewSymbolCollector(service, symbolCfg, b.taskQueue, b.DataChan, nil)
 	if err != nil {
 		return err
 	}
