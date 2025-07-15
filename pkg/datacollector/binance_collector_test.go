@@ -157,9 +157,9 @@ func TestBinanceCollectorWithMock(t *testing.T) {
 
 	// Create a symbol config
 	symbolConfig := config.SymbolConfig{
-		Symbol:      "BTCUSDT",
-		Enabled:     true,
-		MinuteStart: "2024-01-01T00:00:00Z",
+		Symbol:    "BTCUSDT",
+		Enabled:   true,
+		StartTime: "2024-01-01T00:00:00Z",
 	}
 
 	// 注意: 这里需要检查NewSymbolCollector的最新实现

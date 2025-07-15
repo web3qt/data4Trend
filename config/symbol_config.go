@@ -28,17 +28,19 @@ const (
 type SymbolGroup struct {
 	Symbols       []string          `yaml:"symbols"`
 	Intervals     []string          `yaml:"intervals"`
-	StartTimes    map[string]string `yaml:"start_times"`
+	// 物化视图架构：统一开始时间，所有数据从1分钟原始数据开始收集
+	StartTime     string            `yaml:"start_time"`
 	Enabled       bool              `yaml:"enabled"`
 	PollIntervals map[string]string `yaml:"poll_intervals"`
 }
 
 // SymbolSpecificConfig 定义单个币种的特殊配置
 type SymbolSpecificConfig struct {
-	Priority   SymbolPriority    `yaml:"priority"`
-	StartTimes map[string]string `yaml:"start_times"`
-	Intervals  []string          `yaml:"intervals"`
-	Enabled    *bool             `yaml:"enabled"`
+	Priority  SymbolPriority `yaml:"priority"`
+	// 物化视图架构：统一开始时间
+	StartTime string         `yaml:"start_time"`
+	Intervals []string       `yaml:"intervals"`
+	Enabled   *bool          `yaml:"enabled"`
 }
 
 // SymbolsConfig 定义整个币种配置
@@ -202,30 +204,19 @@ func (m *SymbolManager) getSymbolConfig(symbol, groupName string, group SymbolGr
 	// 复制间隔数组，避免修改原始值
 	copy(config.Intervals, group.Intervals)
 
-	// 解析开始时间
-	if minute, ok := group.StartTimes["minute"]; ok {
-		config.MinuteStart = minute
-	}
-	if hour, ok := group.StartTimes["hour"]; ok {
-		config.HourlyStart = hour
-	}
-	if day, ok := group.StartTimes["day"]; ok {
-		config.DailyStart = day
+	// 物化视图架构：设置统一开始时间
+	if group.StartTime != "" {
+		config.StartTime = group.StartTime
+	} else {
+		// 如果组没有设置开始时间，使用全局默认时间
+		config.StartTime = m.config.Settings.GlobalStartTime
 	}
 
 	// 应用特殊配置（如果存在）
 	if specificConfig, exists := m.config.Symbols[symbol]; exists {
 		// 应用开始时间
-		if specificStartTimes := specificConfig.StartTimes; specificStartTimes != nil {
-			if minute, ok := specificStartTimes["minute"]; ok {
-				config.MinuteStart = minute
-			}
-			if hour, ok := specificStartTimes["hour"]; ok {
-				config.HourlyStart = hour
-			}
-			if day, ok := specificStartTimes["day"]; ok {
-				config.DailyStart = day
-			}
+		if specificConfig.StartTime != "" {
+			config.StartTime = specificConfig.StartTime
 		}
 
 		// 应用间隔
@@ -360,12 +351,9 @@ func (m *SymbolManager) discoverNewSymbols() {
 		mainGroup = SymbolGroup{
 			Symbols:   []string{},
 			Intervals: []string{"15m", "4h", "1d"},
-			StartTimes: map[string]string{
-				"minute": defaultTime,
-				"hour":   defaultTime,
-				"day":    defaultTime,
-			},
-			Enabled: true,
+			// 物化视图架构：统一开始时间
+			StartTime: defaultTime,
+			Enabled:   true,
 			PollIntervals: map[string]string{
 				"15m": "15m",
 				"4h":  "4h",
@@ -375,20 +363,10 @@ func (m *SymbolManager) discoverNewSymbols() {
 		m.config.Groups["main"] = mainGroup
 	} else {
 		// 如果分组已存在但没有设置开始时间，则设置
-		if mainGroup.StartTimes == nil {
-			mainGroup.StartTimes = make(map[string]string)
+		if mainGroup.StartTime == "" {
+			mainGroup.StartTime = defaultTime
+			m.config.Groups["main"] = mainGroup
 		}
-		// 只有在未设置时才更新开始时间
-		if _, ok := mainGroup.StartTimes["minute"]; !ok {
-			mainGroup.StartTimes["minute"] = defaultTime
-		}
-		if _, ok := mainGroup.StartTimes["hour"]; !ok {
-			mainGroup.StartTimes["hour"] = defaultTime
-		}
-		if _, ok := mainGroup.StartTimes["day"]; !ok {
-			mainGroup.StartTimes["day"] = defaultTime
-		}
-		m.config.Groups["main"] = mainGroup
 	}
 	m.mu.Unlock()
 	

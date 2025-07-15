@@ -82,9 +82,9 @@ func main() {
 		log.Fatalf("配置文件中未找到main组")
 	}
 	
-	// 确保main组的start_times已设置
-	if mainGroup.StartTimes == nil || len(mainGroup.StartTimes) == 0 {
-		log.Fatalf("main组的start_times未设置")
+	// 物化视图架构：确保main组的start_time已设置
+	if mainGroup.StartTime == "" {
+		log.Fatalf("main组的start_time未设置")
 	}
 
 	fmt.Println("===============================================")
@@ -313,17 +313,9 @@ func main() {
 	logging.Logger.WithField("count", len(allCryptos)).Info("成功获取的加密货币数量")
 	fmt.Printf("成功准备了%d个币种\n", len(allCryptos))
 	
-	// 显示main组配置的时间信息
+	// 物化视图架构：显示统一的时间配置信息
 	fmt.Println("时间配置信息:")
-	if min, ok := mainGroup.StartTimes["minute"]; ok {
-		fmt.Printf("分钟级数据开始时间: %s\n", min)
-	}
-	if hour, ok := mainGroup.StartTimes["hour"]; ok {
-		fmt.Printf("小时级数据开始时间: %s\n", hour)
-	}
-	if day, ok := mainGroup.StartTimes["day"]; ok {
-		fmt.Printf("日级数据开始时间: %s\n", day)
-	}
+	fmt.Printf("统一开始时间: %s\n", mainGroup.StartTime)
 	
 	// 直接使用获取到的交易对和配置的时间启动收集器
 	symbols := make([]config.SymbolConfig, 0, len(allCryptos))
@@ -334,16 +326,8 @@ func main() {
 			Intervals: mainGroup.Intervals,
 		}
 		
-		// 直接使用main组配置的时间
-		if min, ok := mainGroup.StartTimes["minute"]; ok {
-			cfg.MinuteStart = min
-		}
-		if hour, ok := mainGroup.StartTimes["hour"]; ok {
-			cfg.HourlyStart = hour
-		}
-		if day, ok := mainGroup.StartTimes["day"]; ok {
-			cfg.DailyStart = day
-		}
+		// 物化视图架构：使用统一的开始时间
+		cfg.StartTime = mainGroup.StartTime
 		
 		symbols = append(symbols, cfg)
 	}

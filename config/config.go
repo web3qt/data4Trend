@@ -12,12 +12,11 @@ import (
 )
 
 type SymbolConfig struct {
-	Symbol      string   `yaml:"symbol"`
-	DailyStart  string   `yaml:"daily_start"`
-	HourlyStart string   `yaml:"hourly_start"`
-	MinuteStart string   `yaml:"minute_start"`
-	Enabled     bool     `yaml:"enabled" default:"true"`
-	Intervals   []string `yaml:"intervals" default:"[\"1m\", \"1h\", \"1d\"]"`
+	Symbol    string   `yaml:"symbol"`
+	// 物化视图架构：统一开始时间，所有数据从1分钟原始数据开始收集
+	StartTime string   `yaml:"start_time"`
+	Enabled   bool     `yaml:"enabled" default:"true"`
+	Intervals []string `yaml:"intervals" default:"[\"1m\", \"1h\", \"1d\"]"`
 }
 
 type LogConfig struct {

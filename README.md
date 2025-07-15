@@ -6,6 +6,8 @@ Data4Trend 是一个高性能加密货币市场数据收集和趋势分析系统
 
 **🚀 新架构升级**: 项目已重构为基于ClickHouse最佳实践的**物化视图架构**，采用单一事实表 + 物化视图自动聚合的设计模式，提供更高的存储效率和查询性能。详见 [物化视图架构指南](MATERIALIZED_VIEWS_GUIDE.md)。
 
+**📈 历史数据支持**: 系统已配置为从**2019年1月1日**开始收集历史数据，为长期趋势分析和回测提供充足的数据基础。所有配置已验证并测试通过。数据库采用Docker Compose部署，确保数据能正常写入和查询。
+
 ## 功能特性
 
 ### 🏗️ 架构特性
@@ -93,6 +95,34 @@ go build -o bin/trendscanner ./cmd/trendscanner
 INIT_DB=true ./scripts/start-materialized.sh
 ```
 
+### 1. 启动ClickHouse数据库
+
+使用Docker Compose启动ClickHouse服务：
+
+```bash
+# 启动ClickHouse容器
+docker compose up -d clickhouse
+
+# 检查容器状态
+docker ps
+
+# 验证数据库连接
+docker exec data4trend-clickhouse-1 clickhouse-client --database data4trend --query "SHOW TABLES"
+```
+
+### 2. 验证数据写入和查询
+
+```bash
+# 插入测试数据
+docker exec data4trend-clickhouse-1 clickhouse-client --database data4trend --query "INSERT INTO kline_raw (id, symbol, open_time, close_time, open_price, high_price, low_price, close_price, volume) VALUES (1, 'BTCUSDT', '2019-01-01 00:00:00', '2019-01-01 00:01:00', 3800.0, 3850.0, 3790.0, 3820.0, 100.5)"
+
+# 查询数据验证
+docker exec data4trend-clickhouse-1 clickhouse-client --database data4trend --query "SELECT * FROM kline_raw ORDER BY open_time"
+
+# 聚合查询测试
+docker exec data4trend-clickhouse-1 clickhouse-client --database data4trend --query "SELECT symbol, COUNT(*) as count, AVG(close_price) as avg_price FROM kline_raw GROUP BY symbol"
+```
+
 ### 📋 详细步骤
 
 1. **初始化数据库**
@@ -176,6 +206,14 @@ export CLICKHOUSE_DATABASE="data4trend"
 #### 🆕 物化视图架构（推荐）
 
 ```bash
+# 设置环境变量
+export CLICKHOUSE_HOST=localhost
+export CLICKHOUSE_PORT=9000
+export CLICKHOUSE_HTTP_PORT=8123
+export CLICKHOUSE_USER=default
+export CLICKHOUSE_PASSWORD=123456
+export CLICKHOUSE_DATABASE=data4trend
+
 # 初始化数据库表结构
 ./bin/data-collector-materialized -init-db
 

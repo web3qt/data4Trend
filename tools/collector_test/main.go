@@ -70,10 +70,10 @@ func main() {
 
 	// 添加一个测试交易对
 	testSymbol := config.SymbolConfig{
-		Symbol:      "BTCUSDT",
-		Enabled:     true,
-		Intervals:   []string{"1h"},
-		HourlyStart: time.Now().Add(-24 * time.Hour).Format(time.RFC3339),
+		Symbol:    "BTCUSDT",
+		Enabled:   true,
+		Intervals: []string{"1h"},
+		StartTime: time.Now().Add(-24 * time.Hour).Format(time.RFC3339),
 	}
 	cfg.Binance.Symbols = append(cfg.Binance.Symbols, testSymbol)
 

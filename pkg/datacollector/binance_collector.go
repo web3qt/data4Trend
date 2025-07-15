@@ -226,10 +226,10 @@ func (b *BinanceCollector) Start(ctx context.Context) error {
 	if !hasETH {
 		logging.Logger.Info("添加ETHUSDT交易对")
 		ethSymbol := config.SymbolConfig{
-			Symbol:      "ETHUSDT",
-			Enabled:     true,
-			Intervals:   []string{"1m", "5m", "15m", "1h", "4h", "1d"},
-			HourlyStart: time.Now().Add(-24 * time.Hour).Format(time.RFC3339),
+			Symbol:    "ETHUSDT",
+			Enabled:   true,
+			Intervals: []string{"1m", "5m", "15m", "1h", "4h", "1d"},
+			StartTime: time.Now().Add(-24 * time.Hour).Format(time.RFC3339),
 		}
 		symbols = append(symbols, ethSymbol)
 	}
@@ -237,10 +237,10 @@ func (b *BinanceCollector) Start(ctx context.Context) error {
 	if !hasBTC {
 		logging.Logger.Info("添加BTCUSDT交易对")
 		btcSymbol := config.SymbolConfig{
-			Symbol:      "BTCUSDT",
-			Enabled:     true,
-			Intervals:   []string{"1m", "5m", "15m", "1h", "4h", "1d"},
-			HourlyStart: time.Now().Add(-24 * time.Hour).Format(time.RFC3339),
+			Symbol:    "BTCUSDT",
+			Enabled:   true,
+			Intervals: []string{"1m", "5m", "15m", "1h", "4h", "1d"},
+			StartTime: time.Now().Add(-24 * time.Hour).Format(time.RFC3339),
 		}
 		symbols = append(symbols, btcSymbol)
 	}
@@ -285,16 +285,14 @@ func (b *BinanceCollector) StartWithSymbols(ctx context.Context, symbols []confi
 			continue
 		}
 
-		// 检查开始时间
-		if symbolCfg.MinuteStart != "" || symbolCfg.HourlyStart != "" || symbolCfg.DailyStart != "" {
+		// 物化视图架构：检查统一的开始时间
+		if symbolCfg.StartTime != "" {
 			logging.Logger.WithFields(logrus.Fields{
-				"symbol":       symbolCfg.Symbol,
-				"minute_start": symbolCfg.MinuteStart,
-				"hourly_start": symbolCfg.HourlyStart,
-				"daily_start":  symbolCfg.DailyStart,
+				"symbol":     symbolCfg.Symbol,
+				"start_time": symbolCfg.StartTime,
 			}).Debug("交易对开始时间")
 		} else {
-			logging.Logger.WithField("symbol", symbolCfg.Symbol).Warn("交易对没有设置任何开始时间")
+			logging.Logger.WithField("symbol", symbolCfg.Symbol).Warn("交易对没有设置开始时间")
 		}
 
 		// 使用适配器创建服务

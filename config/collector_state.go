@@ -119,19 +119,9 @@ func (sm *SymbolManager) UpdateSymbols(symbols []SymbolConfig) error {
 				continue
 			}
 
-			// 更新组中的开始时间
-			if group.StartTimes == nil {
-				group.StartTimes = make(map[string]string)
-			}
-
-			if symbol.MinuteStart != "" {
-				group.StartTimes["minute"] = symbol.MinuteStart
-			}
-			if symbol.HourlyStart != "" {
-				group.StartTimes["hourly"] = symbol.HourlyStart
-			}
-			if symbol.DailyStart != "" {
-				group.StartTimes["daily"] = symbol.DailyStart
+			// 物化视图架构：更新统一的开始时间
+			if symbol.StartTime != "" {
+				group.StartTime = symbol.StartTime
 			}
 
 			// 更新组
@@ -140,18 +130,8 @@ func (sm *SymbolManager) UpdateSymbols(symbols []SymbolConfig) error {
 
 		// 检查是否有特殊配置需要更新
 		if specificConfig, exists := sm.config.Symbols[symbol.Symbol]; exists {
-			if specificConfig.StartTimes == nil {
-				specificConfig.StartTimes = make(map[string]string)
-			}
-
-			if symbol.MinuteStart != "" {
-				specificConfig.StartTimes["minute"] = symbol.MinuteStart
-			}
-			if symbol.HourlyStart != "" {
-				specificConfig.StartTimes["hourly"] = symbol.HourlyStart
-			}
-			if symbol.DailyStart != "" {
-				specificConfig.StartTimes["daily"] = symbol.DailyStart
+			if symbol.StartTime != "" {
+				specificConfig.StartTime = symbol.StartTime
 			}
 
 			// 更新特殊配置

@@ -49,10 +49,8 @@ func NewSymbolCollector(service types.KlinesService, cfg config.SymbolConfig, ta
 	}).Debug("初始化收集器")
 
 	logging.Logger.WithFields(logrus.Fields{
-		"daily_start":  cfg.DailyStart,
-		"hourly_start": cfg.HourlyStart,
-		"minute_start": cfg.MinuteStart,
-		"intervals":    cfg.Intervals,
+		"start_time": cfg.StartTime,
+		"intervals":  cfg.Intervals,
 	}).Debug("初始化收集器时间周期")
 
 	if cfg.Symbol == "" {
@@ -64,108 +62,34 @@ func NewSymbolCollector(service types.KlinesService, cfg config.SymbolConfig, ta
 		cfg.Intervals = []string{"1h"}
 	}
 
-	// 解析不同周期的起始时间
+	// 物化视图架构：统一的起始时间处理
 	startTimes := make(map[string]time.Time)
 
-	// 检查配置的时间周期
-	hasConfiguredIntervals := false
-
-	// 如果没有设置任何起始时间，使用当前时间减去24小时
+	// 如果没有设置起始时间，使用当前时间减去24小时
 	defaultStartTime := time.Now().Add(-24 * time.Hour)
 
-	// 解析日K线起始时间
-	if cfg.DailyStart != "" && contains(cfg.Intervals, "1d") {
-		hasConfiguredIntervals = true
-		if t, err := time.Parse(time.RFC3339, cfg.DailyStart); err == nil {
-			startTimes["1d"] = t
-			logging.Logger.WithField("time", t).Debug("成功解析日K线起始时间")
+	// 解析统一的起始时间
+	var startTime time.Time
+	if cfg.StartTime != "" {
+		if t, err := time.Parse(time.RFC3339, cfg.StartTime); err == nil {
+			startTime = t
+			logging.Logger.WithField("time", t).Debug("成功解析起始时间")
 		} else {
-			logging.Logger.WithError(err).Warn("解析日K线起始时间失败，使用默认时间")
-			startTimes["1d"] = defaultStartTime
+			logging.Logger.WithError(err).Warn("解析起始时间失败，使用默认时间")
+			startTime = defaultStartTime
 		}
+	} else {
+		logging.Logger.WithField("symbol", cfg.Symbol).Warn("未配置起始时间，使用默认时间")
+		startTime = defaultStartTime
 	}
 
-	// 解析小时K线起始时间
-	if cfg.HourlyStart != "" && contains(cfg.Intervals, "1h") {
-		hasConfiguredIntervals = true
-		if t, err := time.Parse(time.RFC3339, cfg.HourlyStart); err == nil {
-			startTimes["1h"] = t
-			logging.Logger.WithField("time", t).Debug("成功解析小时K线起始时间")
-		} else {
-			logging.Logger.WithError(err).Warn("解析小时K线起始时间失败，使用默认时间")
-			startTimes["1h"] = defaultStartTime
-		}
-	}
-
-	// 解析分钟K线起始时间
-	if cfg.MinuteStart != "" && contains(cfg.Intervals, "1m") {
-		hasConfiguredIntervals = true
-		if t, err := time.Parse(time.RFC3339, cfg.MinuteStart); err == nil {
-			startTimes["1m"] = t
-			logging.Logger.WithField("time", t).Debug("成功解析分钟K线起始时间")
-		} else {
-			logging.Logger.WithError(err).Warn("解析分钟K线起始时间失败，使用默认时间")
-			startTimes["1m"] = defaultStartTime
-		}
-	}
-
-	// 解析其他K线周期
+	// 为所有时间周期设置相同的起始时间
 	for _, interval := range cfg.Intervals {
-		// 如果已经解析过，跳过
-		if _, exists := startTimes[interval]; exists {
-			continue
-		}
-
-		// 根据周期类型选择合适的起始时间
-		var startTimeStr string
-		switch {
-		case interval == "5m" || interval == "15m" || interval == "30m":
-			startTimeStr = cfg.MinuteStart // 分钟级使用分钟起始时间
-		case interval == "2h" || interval == "4h" || interval == "6h" || interval == "8h" || interval == "12h":
-			startTimeStr = cfg.HourlyStart // 小时级使用小时起始时间
-		case interval == "3d" || interval == "1w":
-			startTimeStr = cfg.DailyStart // 日级以上使用日起始时间
-		default:
-			// 默认使用最近的时间
-			startTimeStr = cfg.MinuteStart
-		}
-
-		if startTimeStr != "" {
-			if t, err := time.Parse(time.RFC3339, startTimeStr); err == nil {
-				startTimes[interval] = t
-				logging.Logger.WithFields(logrus.Fields{
-					"interval": interval,
-					"time":     t,
-				}).Debug("成功解析K线起始时间")
-				hasConfiguredIntervals = true
-			} else {
-				logging.Logger.WithFields(logrus.Fields{
-					"interval": interval,
-					"error":    err,
-				}).Warn("解析K线起始时间失败，使用默认时间")
-				startTimes[interval] = defaultStartTime
-			}
-		} else {
-			logging.Logger.WithField("interval", interval).Warn("未找到对应的起始时间配置，使用默认时间")
-			startTimes[interval] = defaultStartTime
-		}
-	}
-
-	// 检查是否有配置的时间周期
-	if !hasConfiguredIntervals {
-		logging.Logger.WithField("symbol", cfg.Symbol).Warn("交易对没有配置任何有效的时间周期，使用默认时间")
-	}
-
-	// 确保至少有一个时间周期
-	if len(startTimes) == 0 {
-		for _, interval := range cfg.Intervals {
-			startTimes[interval] = defaultStartTime
-			logging.Logger.WithFields(logrus.Fields{
-				"symbol":   cfg.Symbol,
-				"interval": interval,
-				"time":     defaultStartTime,
-			}).Warn("使用默认起始时间")
-		}
+		startTimes[interval] = startTime
+		logging.Logger.WithFields(logrus.Fields{
+			"interval": interval,
+			"time":     startTime,
+		}).Debug("设置K线起始时间")
 	}
 
 	logging.Logger.WithFields(logrus.Fields{
