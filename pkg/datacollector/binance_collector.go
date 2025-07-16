@@ -171,7 +171,7 @@ func NewBinanceCollector(cfg *config.Config) *BinanceCollector {
 		"api_key_set":   cfg.Binance.APIKey != "",
 		"proxy":         cfg.HTTP.Proxy,
 		"worker_count":  workers,
-		"symbols_count": len(cfg.Binance.Symbols),
+		"symbols_count": len(cfg.Symbols),
 	}).Info("初始化Binance收集器")
 
 	return &BinanceCollector{
@@ -200,7 +200,7 @@ func (b *BinanceCollector) Start(ctx context.Context) error {
 	if err != nil {
 		// 如果无法获取符号管理器，使用配置中的符号
 		logging.Logger.WithError(err).Warn("无法获取符号管理器，使用配置中的符号")
-		return b.StartWithSymbols(ctx, b.config.Binance.Symbols)
+		return b.StartWithSymbols(ctx, b.config.Symbols)
 	}
 
 	// 获取所有启用的符号

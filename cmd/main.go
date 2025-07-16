@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -104,14 +105,22 @@ func main() {
 	logging.Logger.Info("配置加载成功")
 	logging.Logger.WithField("proxy", cfg.HTTP.Proxy).Info("HTTP代理设置")
 
-	// 创建HTTP客户端并测试连接
+	// 创建HTTP客户端并测试连接（带超时控制）
 	httpClient := cfg.NewHTTPClient()
-	testResp, err := httpClient.Get("https://api.binance.com/api/v3/time")
+	testCtx, testCancel := context.WithTimeout(ctx, 10*time.Second)
+	defer testCancel()
+	
+	req, err := http.NewRequestWithContext(testCtx, "GET", "https://api.binance.com/api/v3/time", nil)
 	if err != nil {
-		logging.Logger.WithError(err).Warn("无法连接到Binance API")
+		logging.Logger.WithError(err).Warn("创建Binance API测试请求失败")
 	} else {
-		testResp.Body.Close()
-		logging.Logger.WithField("status_code", testResp.StatusCode).Info("成功连接到Binance API")
+		testResp, err := httpClient.Do(req)
+		if err != nil {
+			logging.Logger.WithError(err).Warn("无法连接到Binance API")
+		} else {
+			testResp.Body.Close()
+			logging.Logger.WithField("status_code", testResp.StatusCode).Info("成功连接到Binance API")
+		}
 	}
 
 	// 打印关键配置信息
