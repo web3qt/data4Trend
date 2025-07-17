@@ -4,9 +4,11 @@
 
 Data4Trend 是一个高性能加密货币市场数据收集和趋势分析系统，专为量化交易应用设计。系统自动获取市值前200的加密货币，从Binance交易所实时获取K线数据，经过处理后存储到ClickHouse数据库，并提供API接口供其他应用程序访问。同时，系统包含趋势扫描器组件，可基于移动平均线(MA)策略对收集的数据进行趋势分析。
 
-**🚀 新架构升级**: 项目已重构为基于ClickHouse最佳实践的**物化视图架构**，采用单一事实表 + 物化视图自动聚合的设计模式，提供更高的存储效率和查询性能。详见 [物化视图架构指南](MATERIALIZED_VIEWS_GUIDE.md)。
+**🚀 新架构升级**: 项目已重构为基于ClickHouse最佳实践的**物化视图架构**，采用单一事实表 + 物化视图自动聚合的设计模式，提供更高的存储效率和查询性能。详见 [物化视图架构指南](docs/MATERIALIZED_VIEWS_GUIDE.md)。
 
 **📈 历史数据支持**: 系统已配置为从**2019年1月1日**开始收集历史数据，为长期趋势分析和回测提供充足的数据基础。所有配置已验证并测试通过。数据库采用Docker Compose部署，确保数据能正常写入和查询。
+
+**🔄 断点续传**: 新增**断点续传功能**，程序重启后自动从上次中断位置继续收集数据，避免重复收集和数据丢失。详见 [断点续传功能文档](docs/RESUME_FEATURE.md)。
 
 ## 功能特性
 
@@ -16,6 +18,7 @@ Data4Trend 是一个高性能加密货币市场数据收集和趋势分析系统
 - **查询性能**：预聚合数据提供毫秒级查询响应
 - **数据一致性**：单一数据源确保所有时间粒度的数据一致性
 - **实时更新**：物化视图自动、实时地更新聚合数据
+- **断点续传**：智能状态管理，重启后自动恢复进度
 
 ### 📊 数据收集
 - **市值前200排名**：自动获取并跟踪市值排名前200的加密货币
@@ -26,6 +29,7 @@ Data4Trend 是一个高性能加密货币市场数据收集和趋势分析系统
 - **历史数据回填**：支持从指定时间点开始回填历史数据
 - **断点续传**：自动保存收集进度，程序重启后从上次中断位置继续收集数据
 - **数据清洗**：对原始数据进行验证和清洗，确保数据质量
+- **实时状态管理**：YAML格式状态文件，支持手动查看和编辑
 
 ### 🔌 接口服务
 - **实时API**：提供RESTful API和WebSocket接口，支持实时数据查询和推送
@@ -92,7 +96,7 @@ go build -o bin/trendscanner ./cmd/trendscanner
 # 测试物化视图架构
 ./scripts/test-materialized.sh
 
-# 启动数据收集器（物化视图架构）
+# 启动数据收集器（物化视图架构，自动初始化）
 INIT_DB=true ./scripts/start-materialized.sh
 ```
 
@@ -132,16 +136,31 @@ docker exec data4trend-clickhouse-1 clickhouse-client --database data4trend --qu
 ./bin/data-collector-materialized -init-db
 ```
 
-2. **启动数据收集**
+2. **启动数据收集（支持断点续传）**
 ```bash
-# 启动数据收集器
+# 启动数据收集器，支持断点续传
 ./bin/data-collector-materialized -config=config/symbols.yaml
+
+# 使用命令行参数覆盖配置
+./bin/data-collector-materialized -config=config/symbols.yaml -db-host=localhost -db-port=9000 -db-user=default -db-pass=123456 -log-level=info
 ```
 
 3. **启动趋势分析**
 ```bash
-# 启动趋势扫描器
+# 启动趋势扫描器（兼容物化视图架构）
+./bin/trendscanner
+
+# 使用自定义配置文件
 ./bin/trendscanner -config=config/trend_scanner.yaml
+```
+
+4. **查看运行状态**
+```bash
+# 查看断点续传状态
+cat config/collector_state.yaml
+
+# 实时查看日志
+tail -f logs/data4trend.log
 ```
 
 ## 安装与部署
@@ -204,7 +223,7 @@ export CLICKHOUSE_DATABASE="data4trend"
 
 ### 运行数据采集服务
 
-#### 🆕 物化视图架构（推荐）
+#### 🆕 物化视图架构（推荐，支持断点续传）
 
 ```bash
 # 设置环境变量
@@ -218,7 +237,7 @@ export CLICKHOUSE_DATABASE=data4trend
 # 初始化数据库表结构
 ./bin/data-collector-materialized -init-db
 
-# 启动数据收集器
+# 启动数据收集器（支持断点续传）
 ./bin/data-collector-materialized -config config/symbols.yaml
 
 # 使用启动脚本（自动初始化）
@@ -226,6 +245,9 @@ INIT_DB=true ./scripts/start-materialized.sh
 
 # 测试架构功能
 ./scripts/test-materialized.sh
+
+# 查看断点续传状态
+cat config/collector_state.yaml
 ```
 
 #### 传统架构（兼容性）
@@ -255,6 +277,8 @@ INIT_DB=true ./scripts/start-materialized.sh
 # 使用自定义配置文件
 ./bin/trendscanner -config config/trend_scanner.yaml
 
+# 查看趋势分析结果
+ls trend_results/
 ```
 
 ### 数据库状态检查与管理
@@ -347,19 +371,63 @@ log:
 ### 交易对配置 (symbols.yaml)
 
 ```yaml
-# 币种配置
-groups:
-  # 空组，不再使用主交易对组
+# 数据库配置
+clickhouse:
+  host: "localhost"
+  port: 9000
+  http_port: 8123
+  database: "data4trend"
+  user: "default"
+  password: "123456"
+  max_open_conns: 10
+  max_idle_conns: 5
+  conn_max_lifetime: "1h"
 
-# 全局设置
-settings:
-  max_symbols_per_batch: 30  # 每批处理的币种数，增加到30个
-  discovery_enabled: true  # 启用自动发现新币种
-  discovery_interval: 6h   # 缩短自动发现新币种的间隔
-  excluded_symbols:  # 排除的币种
-    - USDCUSDT
-    - BUSDUSDT
-    - TUSDUSDT
+# Binance API配置
+binance:
+  api_key: ""
+  secret_key: ""
+  base_url: "https://api.binance.com"
+
+# 交易对配置
+symbols:
+  - symbol: "BTCUSDT"
+    enabled: true
+    start_time: "2019-01-01T00:00:00Z"
+    intervals:
+      - "1m"
+      - "5m"
+      - "15m"
+      - "1h"
+      - "4h"
+      - "1d"
+  
+  - symbol: "ETHUSDT"
+    enabled: true
+    start_time: "2019-01-01T00:00:00Z"
+    intervals:
+      - "1m"
+      - "5m"
+      - "15m"
+      - "1h"
+      - "4h"
+      - "1d"
+
+# 性能配置
+performance:
+  workers: 25
+  data_channel_buffer: 1000
+  task_queue_size: 800
+
+# 日志配置
+log:
+  level: "info"
+  format: "json"
+  output_path: "logs/data4trend.log"
+  max_size: 100
+  max_backups: 3
+  max_age: 28
+  compress: true
 ```
 
 ### 趋势扫描器配置 (trend_scanner.yaml)
@@ -416,20 +484,22 @@ export COLLECTION_START_TIME="2022-01-01T00:00:00Z"
 
 ## 断点续传功能
 
-系统支持断点续传功能，能够自动保存数据收集进度，在程序重启后从上次中断的位置继续收集数据，避免重复收集和数据丢失。
+系统支持**智能断点续传功能**，能够自动保存数据收集进度，在程序重启后从上次中断的位置继续收集数据，避免重复收集和数据丢失。
 
-### 功能特性
+### 🔄 核心特性
 
-- **自动状态保存**：系统每收集完一批数据后自动保存当前进度
+- **零配置**：无需额外配置，自动启用断点续传
 - **智能恢复**：程序重启时自动检测并加载上次保存的状态
 - **多维度支持**：支持多个交易对和多个时间周期的独立状态管理
 - **异常处理**：状态文件损坏或丢失时自动使用配置的默认起始时间
 - **实时更新**：收集过程中实时更新状态，确保进度不丢失
+- **透明操作**：对用户完全透明，无需手动干预
 
-### 状态文件
+### 📁 状态文件管理
 
-断点续传状态保存在 `config/collector_state.yaml` 文件中，包含以下信息：
+**文件位置**: `config/collector_state.yaml`
 
+**文件格式**:
 ```yaml
 updated_at: "2024-01-15T10:30:00Z"
 states:
@@ -444,31 +514,45 @@ states:
         last_time: "2024-01-15T10:15:00Z"
 ```
 
-### 使用示例
+### 🚀 使用方法
 
+**基本使用**:
 ```bash
-# 首次启动数据收集器
+# 首次启动数据收集器（自动启用断点续传）
 ./bin/data-collector-materialized -config=config/symbols.yaml
 
-# 程序运行一段时间后手动停止（Ctrl+C）
+# 程序运行一段时间后手动停止（Ctrl+C优雅停止）
 # 状态会自动保存到 config/collector_state.yaml
 
-# 重新启动程序，将自动从上次中断位置继续
+# 重新启动程序，自动从上次中断位置继续
 ./bin/data-collector-materialized -config=config/symbols.yaml
 ```
 
-### 状态管理
+**状态管理操作**:
+```bash
+# 查看当前收集状态
+cat config/collector_state.yaml
 
-- **查看状态**：可以直接查看 `config/collector_state.yaml` 文件了解当前收集进度
-- **重置状态**：删除状态文件可以从配置的起始时间重新开始收集
-- **手动修改**：可以手动编辑状态文件来调整特定交易对的收集起始时间
+# 重置状态（从头开始收集）
+rm config/collector_state.yaml
+./bin/data-collector-materialized -config=config/symbols.yaml
 
-### 注意事项
+# 手动调整特定交易对的起始时间
+vim config/collector_state.yaml
+# 修改对应交易对的last_time字段
+```
 
-- 状态文件会在程序正常运行时自动创建和更新
-- 如果状态文件不存在或损坏，程序会使用配置文件中的起始时间
-- 动态添加的新交易对不会使用断点续传，而是从配置的起始时间开始收集
-- 建议定期备份状态文件以防意外丢失
+### ⚠️ 注意事项
+
+- **状态文件**：会在程序正常运行时自动创建和更新
+- **新交易对**：动态添加的新交易对不会使用断点续传，而是从配置的起始时间开始收集
+- **权限要求**：确保程序对`config/`目录有读写权限
+- **备份建议**：建议定期备份`config/collector_state.yaml`文件
+- **故障恢复**：如果状态文件损坏，程序会自动使用配置文件中的起始时间
+
+### 📚 相关文档
+
+详见 [断点续传功能详细文档](docs/RESUME_FEATURE.md)
 
 ## 数据存储结构
 
@@ -676,18 +760,18 @@ curl -X DELETE "http://localhost:8080/api/v1/klines?symbol=BTCUSDT&interval=1h&s
 
 ## 📚 相关文档
 
-- **[物化视图架构指南](MATERIALIZED_VIEWS_GUIDE.md)** - 详细的架构说明和最佳实践
-- **[迁移指南](MIGRATION_GUIDE.md)** - 从传统架构迁移到物化视图架构的步骤
-- **[监控使用指南](MONITOR_USAGE.md)** - 系统监控和性能优化
+- **[物化视图架构指南](docs/MATERIALIZED_VIEWS_GUIDE.md)** - 详细的架构说明和最佳实践
+- **[断点续传功能文档](docs/RESUME_FEATURE.md)** - 断点续传功能的详细实现和使用指南
 
 ## 🔧 开发扩展
 
 开发者可以根据需要扩展系统功能：
 
 ### 物化视图架构扩展
-- 在 <mcfile name="materialized_clickhouse_store.go" path="pkg/datastore/materialized_clickhouse_store.go"></mcfile> 中扩展存储功能
-- 修改 <mcfile name="clickhouse-init-materialized-views.sql" path="scripts/clickhouse-init-materialized-views.sql"></mcfile> 添加新的聚合表
-- 在 <mcfile name="main.go" path="cmd/data-collector-materialized/main.go"></mcfile> 中调整数据收集逻辑
+- 在 `pkg/datastore/materialized_clickhouse_store.go` 中扩展存储功能
+- 修改 `scripts/clickhouse-init-materialized-views.sql` 添加新的聚合表
+- 在 `cmd/data-collector-materialized/main.go` 中调整数据收集逻辑
+- 在 `config/collector_state.go` 中扩展断点续传功能
 
 ### 通用扩展
 - 在`pkg/datacollector`中修改以支持其他交易所

@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 
@@ -11,19 +12,19 @@ import (
 
 // Config 主配置结构
 type Config struct {
-	Symbols    []SymbolConfig    `yaml:"symbols"`
-	Binance    BinanceConfig     `yaml:"binance"`
-	HTTP       HTTPConfig        `yaml:"http"`
+	Symbols     []SymbolConfig    `yaml:"symbols"`
+	Binance     BinanceConfig     `yaml:"binance"`
+	HTTP        HTTPConfig        `yaml:"http"`
 	Performance PerformanceConfig `yaml:"performance"`
-	ClickHouse ClickHouseConfig  `yaml:"clickhouse"`
-	Log        LogConfig         `yaml:"log"`
+	ClickHouse  ClickHouseConfig  `yaml:"clickhouse"`
+	Log         LogConfig         `yaml:"log"`
 }
 
 // SymbolConfig 交易对配置
 type SymbolConfig struct {
-	Symbol    string `yaml:"symbol"`
-	Enabled   bool   `yaml:"enabled"`
-	StartTime string `yaml:"start_time,omitempty"`
+	Symbol    string   `yaml:"symbol"`
+	Enabled   bool     `yaml:"enabled"`
+	StartTime string   `yaml:"start_time,omitempty"`
 	Intervals []string `yaml:"intervals"`
 }
 
@@ -138,11 +139,35 @@ func (c *Config) UpdateCollectorState(symbol, interval string, lastTime time.Tim
 
 // NewHTTPClient 创建HTTP客户端
 func (c *Config) NewHTTPClient() *http.Client {
-	client := &http.Client{
-		Timeout: time.Duration(c.HTTP.Timeout) * time.Second,
-	}
+	timeout := time.Duration(c.HTTP.Timeout) * time.Second
 	if c.HTTP.Timeout <= 0 {
-		client.Timeout = 30 * time.Second // 默认30秒超时
+		timeout = 120 * time.Second // 默认120秒超时
+	}
+
+	// 创建自定义Transport
+	transport := &http.Transport{
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   30 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+
+	// 如果配置了代理，设置代理
+	if c.HTTP.Proxy != "" {
+		proxyURL, err := url.Parse(c.HTTP.Proxy)
+		if err != nil {
+			fmt.Printf("代理URL解析失败: %v，将不使用代理\n", err)
+		} else {
+			transport.Proxy = http.ProxyURL(proxyURL)
+			fmt.Printf("使用代理: %s\n", c.HTTP.Proxy)
+		}
+	}
+
+	// 创建自定义的HTTP客户端，增加超时和重试配置
+	client := &http.Client{
+		Timeout:   timeout,
+		Transport: transport,
 	}
 	return client
 }

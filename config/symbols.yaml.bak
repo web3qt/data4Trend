@@ -21,8 +21,9 @@ binance:
 
 # HTTP客户端配置
 http:
-  timeout: 180
-  proxy: "http://127.0.0.1:7890"
+  timeout: 120
+  # 如果不需要代理，请注释掉下面这行
+  # proxy: "http://127.0.0.1:7890"
 
 # 性能配置
 performance:
