@@ -464,3 +464,43 @@ func (sc *SymbolCollector) GetPriority() int {
 func (sc *SymbolCollector) UpdateLastCollect() {
 	// 由于我们没有直接存储上次收集时间，此方法暂不做任何操作
 }
+
+// IntervalCollector 的方法
+
+// IsEnabled 返回收集器是否启用
+func (ic *IntervalCollector) IsEnabled() bool {
+	return true // IntervalCollector 默认启用
+}
+
+// GetLastCollect 获取上次收集数据的时间
+func (ic *IntervalCollector) GetLastCollect() time.Time {
+	// 由于我们没有直接存储上次收集时间，返回一个过去的时间以确保可以立即收集
+	return time.Now().Add(-24 * time.Hour)
+}
+
+// GetPollInterval 获取轮询间隔
+func (ic *IntervalCollector) GetPollInterval() time.Duration {
+	// 默认每分钟轮询一次
+	return 1 * time.Minute
+}
+
+// GetStartTime 获取收集器的开始时间
+func (ic *IntervalCollector) GetStartTime() time.Time {
+	return ic.startTime
+}
+
+// GetInitialStartTime 获取初始开始时间
+func (ic *IntervalCollector) GetInitialStartTime() time.Time {
+	// 默认使用24小时前的时间
+	return time.Now().Add(-24 * time.Hour)
+}
+
+// GetPriority 获取收集器优先级
+func (ic *IntervalCollector) GetPriority() int {
+	return ic.priority
+}
+
+// UpdateLastCollect 更新上次收集时间
+func (ic *IntervalCollector) UpdateLastCollect() {
+	// 由于我们没有直接存储上次收集时间，此方法暂不做任何操作
+}

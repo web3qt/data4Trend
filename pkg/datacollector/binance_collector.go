@@ -113,7 +113,7 @@ func (b *BinanceKlinesService) Do(ctx context.Context) ([]*types.KLineData, erro
 type BinanceCollector struct {
 	Client       *binance.Client
 	DataChan     chan *types.KLineData
-	Collectors   map[string]map[string]*SymbolCollector // symbol -> interval -> collector
+	Collectors   map[string]*SymbolCollector // symbol -> collector (每个SymbolCollector管理多个interval)
 	CollectorsMu sync.RWMutex
 	config       *config.Config
 	workers      int                 // 并发工作器数量
@@ -177,7 +177,7 @@ func NewBinanceCollector(cfg *config.Config) *BinanceCollector {
 	return &BinanceCollector{
 		Client:       client,
 		DataChan:     make(chan *types.KLineData, dataChannelBuffer), // 使用配置的缓冲区大小
-		Collectors:   make(map[string]map[string]*SymbolCollector),
+		Collectors:   make(map[string]*SymbolCollector),
 		config:       cfg,
 		workers:      workers,
 		workerPool:   make(chan struct{}, workers),
@@ -325,10 +325,7 @@ func (b *BinanceCollector) StartWithSymbols(ctx context.Context, symbols []confi
 
 		// 收集器添加到映射
 		b.CollectorsMu.Lock()
-		if _, ok := b.Collectors[symbolCfg.Symbol]; !ok {
-			b.Collectors[symbolCfg.Symbol] = make(map[string]*SymbolCollector)
-		}
-		b.Collectors[symbolCfg.Symbol]["default"] = collector
+		b.Collectors[symbolCfg.Symbol] = collector
 		b.CollectorsMu.Unlock()
 
 		// 尝试启动收集器
@@ -584,13 +581,12 @@ func (b *BinanceCollector) updateCollectorStartTime(symbol, interval string, new
 	defer b.CollectorsMu.RUnlock()
 
 	// 查找对应的收集器
-	if symbolCollectors, exists := b.Collectors[symbol]; exists {
-		if collector, exists := symbolCollectors["default"]; exists {
-			// 查找对应的时间周期收集器
-			collector.intervalsMu.RLock()
-			defer collector.intervalsMu.RUnlock()
+	if collector, exists := b.Collectors[symbol]; exists {
+		// 查找对应的时间周期收集器
+		collector.intervalsMu.RLock()
+		defer collector.intervalsMu.RUnlock()
 
-			if intervalCollector, exists := collector.intervals[interval]; exists {
+		if intervalCollector, exists := collector.intervals[interval]; exists {
 				// 只有当新时间点比现有的更晚时才更新
 				if newTime.After(intervalCollector.startTime) {
 					// 计算下一个K线的开始时间
@@ -638,12 +634,11 @@ func (b *BinanceCollector) updateCollectorStartTime(symbol, interval string, new
 						"close_time": newTime.Format(time.RFC3339),
 					}).Info("更新收集器开始时间")
 
-					// 每小时保存进度到配置文件
-					hourNow := time.Now().Hour()
-					if b.lastSaveHour != hourNow {
-						b.lastSaveHour = hourNow
-						go b.saveProgress()
-					}
+				// 每小时保存进度到配置文件
+				hourNow := time.Now().Hour()
+				if b.lastSaveHour != hourNow {
+					b.lastSaveHour = hourNow
+					go b.saveProgress()
 				}
 			}
 		}
@@ -665,22 +660,20 @@ func (b *BinanceCollector) saveProgress() {
 	states := make(map[string]map[string]time.Time)
 
 	// 遍历所有收集器，收集当前状态
-	for symbol, collectors := range b.Collectors {
-		for _, collector := range collectors {
-			collector.intervalsMu.RLock()
+	for symbol, collector := range b.Collectors {
+		collector.intervalsMu.RLock()
 
-			// 为每个符号创建间隔映射
-			if _, exists := states[symbol]; !exists {
-				states[symbol] = make(map[string]time.Time)
-			}
-
-			// 收集每个间隔的开始时间
-			for interval, ic := range collector.intervals {
-				states[symbol][interval] = ic.startTime
-			}
-
-			collector.intervalsMu.RUnlock()
+		// 为每个符号创建间隔映射
+		if _, exists := states[symbol]; !exists {
+			states[symbol] = make(map[string]time.Time)
 		}
+
+		// 收集每个间隔的开始时间
+		for interval, ic := range collector.intervals {
+			states[symbol][interval] = ic.startTime
+		}
+
+		collector.intervalsMu.RUnlock()
 	}
 
 	// 如果有状态数据
@@ -719,7 +712,7 @@ func (b *BinanceCollector) getMaxDurationForInterval(interval string) time.Durat
 
 // scheduler 周期性调度收集任务
 func (b *BinanceCollector) scheduler(ctx context.Context) {
-	ticker := time.NewTicker(10 * time.Second) // 每10秒检查一次需要执行的任务
+	ticker := time.NewTicker(20 * time.Second) // 每20秒检查一次需要执行的任务
 	defer ticker.Stop()
 
 	// 保存收集进度的定时器
@@ -763,7 +756,7 @@ func (b *BinanceCollector) scheduler(ctx context.Context) {
 			// 为每个活跃的币种调度任务
 			for _, symbol := range symbols {
 				b.CollectorsMu.RLock()
-				intervals, ok := b.Collectors[symbol]
+				symbolCollector, ok := b.Collectors[symbol]
 				b.CollectorsMu.RUnlock()
 
 				if !ok {
@@ -771,7 +764,8 @@ func (b *BinanceCollector) scheduler(ctx context.Context) {
 				}
 
 				// 对每个间隔检查是否需要调度任务
-				for interval, collector := range intervals {
+				symbolCollector.intervalsMu.RLock()
+				for interval, collector := range symbolCollector.intervals {
 					// 跳过已禁用的收集器
 					if !collector.IsEnabled() {
 						continue
@@ -852,6 +846,7 @@ func (b *BinanceCollector) scheduler(ctx context.Context) {
 						}
 					}
 				}
+				symbolCollector.intervalsMu.RUnlock()
 			}
 			
 			// 记录本次调度的任务数量
@@ -868,12 +863,10 @@ func (b *BinanceCollector) AddSymbol(symbolCfg config.SymbolConfig) error {
 	defer b.CollectorsMu.Unlock()
 
 	// 检查交易对是否已存在
-	if _, exists := b.Collectors[symbolCfg.Symbol]; exists {
+	if collector, exists := b.Collectors[symbolCfg.Symbol]; exists {
 		// 如果已存在，更新配置
-		for _, intervalCollector := range b.Collectors[symbolCfg.Symbol] {
-			if err := intervalCollector.UpdateConfig(symbolCfg); err != nil {
-				return err
-			}
+		if err := collector.UpdateConfig(symbolCfg); err != nil {
+			return err
 		}
 		return nil
 	}
@@ -886,8 +879,7 @@ func (b *BinanceCollector) AddSymbol(symbolCfg config.SymbolConfig) error {
 	}
 
 	// 存储收集器
-	b.Collectors[symbolCfg.Symbol] = make(map[string]*SymbolCollector)
-	b.Collectors[symbolCfg.Symbol]["default"] = collector
+	b.Collectors[symbolCfg.Symbol] = collector
 
 	// 启动收集器
 	return collector.Start()
@@ -898,11 +890,9 @@ func (b *BinanceCollector) RemoveSymbol(symbol string) {
 	b.CollectorsMu.Lock()
 	defer b.CollectorsMu.Unlock()
 
-	if collectors, exists := b.Collectors[symbol]; exists {
-		// 停止所有收集器
-		for _, collector := range collectors {
-			collector.Stop()
-		}
+	if collector, exists := b.Collectors[symbol]; exists {
+		// 停止收集器
+		collector.Stop()
 		// 移除收集器
 		delete(b.Collectors, symbol)
 	}
@@ -913,12 +903,10 @@ func (b *BinanceCollector) UpdateSymbol(symbolCfg config.SymbolConfig) error {
 	b.CollectorsMu.Lock()
 	defer b.CollectorsMu.Unlock()
 
-	if collectors, exists := b.Collectors[symbolCfg.Symbol]; exists {
-		// 更新所有收集器
-		for _, collector := range collectors {
-			if err := collector.UpdateConfig(symbolCfg); err != nil {
-				return err
-			}
+	if collector, exists := b.Collectors[symbolCfg.Symbol]; exists {
+		// 更新收集器
+		if err := collector.UpdateConfig(symbolCfg); err != nil {
+			return err
 		}
 		return nil
 	}
@@ -945,15 +933,18 @@ func (b *BinanceCollector) GetCollectorStatus() map[string]map[string]string {
 	defer b.CollectorsMu.RUnlock()
 
 	status := make(map[string]map[string]string)
-	for symbol, collectors := range b.Collectors {
+	for symbol, collector := range b.Collectors {
 		symbolStatus := make(map[string]string)
-		for interval, collector := range collectors {
+		// 获取该收集器的所有interval状态
+		collector.intervalsMu.RLock()
+		for interval := range collector.intervals {
 			if collector.enabled {
 				symbolStatus[interval] = "running"
 			} else {
 				symbolStatus[interval] = "stopped"
 			}
 		}
+		collector.intervalsMu.RUnlock()
 		status[symbol] = symbolStatus
 	}
 	return status
@@ -1401,7 +1392,7 @@ func (b *BinanceCollector) ReloadSymbolConfig() error {
 	
 	// 清除现有的收集器
 	b.CollectorsMu.Lock()
-	b.Collectors = make(map[string]map[string]*SymbolCollector)
+	b.Collectors = make(map[string]*SymbolCollector)
 	b.CollectorsMu.Unlock()
 	
 	// 跟踪已添加的符号，避免重复添加

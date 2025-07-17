@@ -26,9 +26,9 @@ http:
 
 # 性能配置
 performance:
-  workers: 10
+  workers: 25
   data_channel_buffer: 1000
-  task_queue_size: 100
+  task_queue_size: 800
 
 # 日志配置
 log:
