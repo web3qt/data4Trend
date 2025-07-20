@@ -57,7 +57,7 @@ func main() {
 
 	// 加载配置
 	fmt.Println("正在加载配置...")
-	cfg, err := config.LoadConfig()
+	cfg, err := config.LoadConfig(configFile)
 	if err != nil {
 		// 初始化前需要使用标准日志
 		logFatal("加载配置失败: %v", err)

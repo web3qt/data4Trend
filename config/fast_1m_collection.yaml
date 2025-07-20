@@ -1,0 +1,72 @@
+# 快速1分钟数据收集配置 - 只收集1m数据，其他时间间隔通过物化视图自动生成
+
+# 数据库配置
+clickhouse:
+  host: "localhost"
+  port: 9000
+  http_port: 8123
+  database: "data4trend"
+  user: "default"
+  password: "123456"
+  max_open_conns: 50
+  max_idle_conns: 25
+  conn_max_lifetime: "1h"
+
+# Binance API配置
+binance:
+  api_key: ""
+  secret_key: ""
+  base_url: "https://api.binance.com"
+
+# HTTP客户端配置 - 针对历史数据优化
+http:
+  timeout: 180
+  proxy: "http://127.0.0.1:7890"
+
+# 性能配置 - 针对历史数据回填优化
+performance:
+  workers: 100  # 大幅增加并发
+  data_channel_buffer: 50000
+  task_queue_size: 10000
+
+# 日志配置
+log:
+  level: "info"
+  format: "json"
+  output_path: "logs/fast_1m_collection.log"
+  max_size: 500
+  max_backups: 10
+  max_age: 30
+  compress: true
+
+# 交易对配置 - 只收集1m数据
+symbols:
+  - symbol: "BTCUSDT"
+    enabled: true
+    start_time: "2019-01-01T00:00:00Z"
+    intervals:
+      - "1m"
+  
+  - symbol: "ETHUSDT"
+    enabled: true
+    start_time: "2019-01-01T00:00:00Z"
+    intervals:
+      - "1m"
+      
+  - symbol: "BNBUSDT"
+    enabled: true
+    start_time: "2019-01-01T00:00:00Z"
+    intervals:
+      - "1m"
+      
+  - symbol: "XRPUSDT"
+    enabled: true
+    start_time: "2019-01-01T00:00:00Z"
+    intervals:
+      - "1m"
+      
+  - symbol: "ADAUSDT"
+    enabled: true
+    start_time: "2019-01-01T00:00:00Z"
+    intervals:
+      - "1m" 

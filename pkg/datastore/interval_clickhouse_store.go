@@ -109,6 +109,13 @@ func NewIntervalClickHouseStore(cfg *ClickHouseConfig, input <-chan *types.KLine
 func (s *IntervalClickHouseStore) getTableName(interval string) string {
 	// 标准化时间级别名称
 	interval = strings.ToLower(interval)
+	
+	// 1分钟数据存储在 kline_raw 表中
+	if interval == "1m" {
+		return "kline_raw"
+	}
+	
+	// 其他时间间隔使用分表
 	return fmt.Sprintf("kline_%s", interval)
 }
 

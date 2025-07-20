@@ -67,22 +67,23 @@ func NewSymbolCollector(service types.KlinesService, cfg config.SymbolConfig, ta
 	// 断点续传：优先使用保存的状态，然后使用配置文件，最后使用默认值
 	startTimes := make(map[string]time.Time)
 
-	// 如果没有设置起始时间，使用当前时间减去24小时作为默认值
-	defaultStartTime := time.Now().Add(-24 * time.Hour)
-
 	// 解析配置文件中的统一起始时间
 	var configStartTime time.Time
 	if cfg.StartTime != "" {
 		if t, err := time.Parse(time.RFC3339, cfg.StartTime); err == nil {
 			configStartTime = t
-			logging.Logger.WithField("time", t).Debug("成功解析配置文件起始时间")
+			logging.Logger.WithFields(logrus.Fields{
+				"symbol": cfg.Symbol,
+				"time":   t.Format(time.RFC3339),
+			}).Info("成功解析配置文件起始时间")
 		} else {
-			logging.Logger.WithError(err).Warn("解析配置文件起始时间失败，使用默认时间")
-			configStartTime = defaultStartTime
+			logging.Logger.WithError(err).Error("解析配置文件起始时间失败，使用2019年作为默认")
+			configStartTime = time.Date(2019, 1, 1, 0, 0, 0, 0, time.UTC)
 		}
 	} else {
-		logging.Logger.WithField("symbol", cfg.Symbol).Warn("未配置起始时间，使用默认时间")
-		configStartTime = defaultStartTime
+		// 如果没有配置起始时间，使用2019年而不是24小时前
+		logging.Logger.WithField("symbol", cfg.Symbol).Warn("未配置起始时间，使用2019年作为默认起始时间")
+		configStartTime = time.Date(2019, 1, 1, 0, 0, 0, 0, time.UTC)
 	}
 
 	// 为所有时间周期设置起始时间，优先级：保存状态 > 配置文件 > 默认值
