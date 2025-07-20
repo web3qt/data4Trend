@@ -1,4 +1,27 @@
+# 编译输出
+/target/
+**/*.rs.bk
+
+# 日志文件
+*.log
 logs/
+
+# 本地配置文件
+/local_config.*
+
+# IDE相关
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 环境文件
 .env
-bin/
+
+# 二进制文件
+/bin/
+
+/binance_ws_collector/
 .claude
+/logs/
+/target/

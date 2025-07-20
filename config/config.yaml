@@ -1,0 +1,95 @@
+# 币安WebSocket数据收集器配置文件
+
+# ClickHouse数据库配置
+clickhouse:
+  host: "localhost"
+  port: 9000
+  http_port: 8123
+  database: "data4trend"
+  username: "default"
+  password: "123456"
+  connection_timeout: 30
+  query_timeout: 60
+  max_connections: 10
+  data_retention_days: 7
+
+# 币安API配置
+binance:
+  base_url: "https://api.binance.com"
+  ws_url: "wss://stream.binance.com:9443/ws"
+  stream_url: "wss://stream.binance.com:9443/stream"
+  api_key: "your_api_key"      # 可选，用于获取交易对列表
+  secret_key: "your_secret"    # 可选
+  reconnect_interval: 5
+  ping_interval: 30
+  max_reconnect_attempts: 10
+
+# 性能配置
+performance:
+  workers: 10
+  data_channel_buffer: 50000
+  websocket_batch_size: 50
+  batch_size: 1000
+  batch_timeout: 5
+  max_concurrent_connections: 50
+  connection_timeout: 30
+  read_timeout: 60
+  write_timeout: 30
+
+# 监控配置
+monitoring:
+  enabled: true
+  enable_stats: true
+  stats_interval_minutes: 5
+  enable_health_check: true
+  health_check_interval_minutes: 5
+  metrics_interval: 60
+  health_check_interval: 30
+  alert_thresholds:
+    error_rate_percent: 10.0
+    memory_usage_mb: 1000.0
+    cpu_usage_percent: 80.0
+    no_data_timeout_seconds: 300
+
+# 服务器配置
+server:
+  host: "0.0.0.0"
+  port: 8080
+  max_connections: 1000
+  request_timeout: 30
+  cors_enabled: true
+  cors_origins: ["*"]
+
+# 日志配置
+log:
+  level: "info"           # debug, info, warn, error
+  format: "json"
+  json_format: true
+  file_path: "logs/collector.log"
+  max_size: "100MB"
+  max_files: 10
+  compress: true
+
+# 符号过滤配置
+symbol_filter:
+  enabled: true
+  include_patterns: ["*USDT", "*BTC", "*ETH"]
+  exclude_patterns: ["*DOWN*", "*UP*", "*BEAR*", "*BULL*"]
+  min_volume_24h: 1000000
+  max_symbols: 500
+
+# WebSocket配置
+websocket:
+  max_connections_per_stream: 1024
+  buffer_size: 8192
+  compression: true
+  auto_reconnect: true
+  heartbeat_interval: 30
+
+# 数据管理配置
+data_management:
+  cleanup_enabled: true
+  cleanup_interval: 3600  # 1小时
+  backup_enabled: false
+  backup_interval: 86400  # 24小时
+  compression_enabled: true

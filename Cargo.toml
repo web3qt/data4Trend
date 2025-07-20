@@ -1,0 +1,26 @@
+[package]
+name = "data4trend"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "binance_ws_collector"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0.98"
+axum = "0.7"
+chrono = { version = "0.4.41", features = ["serde"] }
+clap = { version = "4.0", features = ["derive"] }
+clickhouse = "0.12"
+config = "0.15.13"
+env_logger = "0.11.8"
+futures-util = "0.3.31"
+log = "0.4.27"
+reqwest = { version = "0.12", features = ["json"] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.141"
+thiserror = "2.0.12"
+tokio = { version = "1.46.1", features = ["full"] }
+tokio-tungstenite = "0.27.0"
+url = "2.5"
