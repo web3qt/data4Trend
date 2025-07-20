@@ -13,10 +13,14 @@ type KLineData struct {
 	HighPrice  float64
 	LowPrice   float64
 	ClosePrice float64
-	Volume     float64
-	Symbol     string
-	Interval   string
-	
+	Volume            float64
+	QuoteAssetVolume  float64 // 成交额
+	NumberOfTrades    int64   // 成交笔数
+	TakerBuyBaseVolume  float64 // 主动买入成交量
+	TakerBuyQuoteVolume float64 // 主动买入成交额
+	Symbol            string
+	Interval          string
+
 	// 兼容性字段
 	Open  float64
 	High  float64

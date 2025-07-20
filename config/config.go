@@ -12,12 +12,17 @@ import (
 
 // Config 主配置结构
 type Config struct {
-	Symbols     []SymbolConfig    `yaml:"symbols"`
-	Binance     BinanceConfig     `yaml:"binance"`
-	HTTP        HTTPConfig        `yaml:"http"`
-	Performance PerformanceConfig `yaml:"performance"`
-	ClickHouse  ClickHouseConfig  `yaml:"clickhouse"`
-	Log         LogConfig         `yaml:"log"`
+	Symbols        []SymbolConfig       `yaml:"symbols"`
+	Binance        BinanceConfig        `yaml:"binance"`
+	HTTP           HTTPConfig           `yaml:"http"`
+	Performance    PerformanceConfig    `yaml:"performance"`
+	ClickHouse     ClickHouseConfig     `yaml:"clickhouse"`
+	Log            LogConfig            `yaml:"log"`
+	Server         ServerConfig         `yaml:"server"`
+	Monitoring     MonitoringConfig     `yaml:"monitoring"`
+	DataManagement DataManagementConfig `yaml:"data_management"`
+	SymbolFilter   SymbolFilterConfig   `yaml:"symbol_filter"`
+	WebSocket      WebSocketConfig      `yaml:"websocket"`
 }
 
 // SymbolConfig 交易对配置
@@ -71,6 +76,47 @@ type LogConfig struct {
 	Compress   bool   `yaml:"compress"`
 }
 
+// ServerConfig API服务器配置
+type ServerConfig struct {
+	Port               int  `yaml:"port"`
+	EnableCORS         bool `yaml:"enable_cors"`
+	EnableWebSocketAPI bool `yaml:"enable_websocket_api"`
+	EnableRestAPI      bool `yaml:"enable_rest_api"`
+}
+
+// MonitoringConfig 监控配置
+type MonitoringConfig struct {
+	EnableStats                 bool `yaml:"enable_stats"`
+	StatsIntervalMinutes        int  `yaml:"stats_interval_minutes"`
+	EnableHealthCheck           bool `yaml:"enable_health_check"`
+	HealthCheckIntervalMinutes  int  `yaml:"health_check_interval_minutes"`
+}
+
+// DataManagementConfig 数据管理配置
+type DataManagementConfig struct {
+	RetentionDays          int `yaml:"retention_days"`
+	CleanupIntervalHours   int `yaml:"cleanup_interval_hours"`
+	MaxSymbols             int `yaml:"max_symbols"`
+}
+
+// SymbolFilterConfig 币种过滤配置
+type SymbolFilterConfig struct {
+	BaseCurrency         string   `yaml:"base_currency"`
+	ExcludedSymbols      []string `yaml:"excluded_symbols"`
+	MinVolumeFilter      bool     `yaml:"min_volume_filter"`
+	MinVolumeThreshold   float64  `yaml:"min_volume_threshold"`
+}
+
+// WebSocketConfig WebSocket连接配置
+type WebSocketConfig struct {
+	ReconnectDelaySeconds    int `yaml:"reconnect_delay_seconds"`
+	MaxReconnectAttempts     int `yaml:"max_reconnect_attempts"`
+	PingIntervalSeconds      int `yaml:"ping_interval_seconds"`
+	ConnectionTimeoutSeconds int `yaml:"connection_timeout_seconds"`
+	ReadTimeoutSeconds       int `yaml:"read_timeout_seconds"`
+	WriteTimeoutSeconds      int `yaml:"write_timeout_seconds"`
+}
+
 // LoadConfig 加载配置文件
 func LoadConfig(configPath ...string) (*Config, error) {
 	// 如果没有提供配置文件路径，使用默认路径
@@ -100,6 +146,43 @@ func LoadConfig(configPath ...string) (*Config, error) {
 		config.ClickHouse.Database = "crypto_data"
 	}
 
+	// 设置服务器配置默认值
+	if config.Server.Port == 0 {
+		config.Server.Port = 8080
+	}
+
+	// 设置监控配置默认值
+	if config.Monitoring.StatsIntervalMinutes == 0 {
+		config.Monitoring.StatsIntervalMinutes = 5
+	}
+	if config.Monitoring.HealthCheckIntervalMinutes == 0 {
+		config.Monitoring.HealthCheckIntervalMinutes = 1
+	}
+
+	// 设置数据管理配置默认值
+	if config.DataManagement.RetentionDays == 0 {
+		config.DataManagement.RetentionDays = 7
+	}
+	if config.DataManagement.CleanupIntervalHours == 0 {
+		config.DataManagement.CleanupIntervalHours = 1
+	}
+
+	// 设置性能配置默认值
+	if config.Performance.Workers == 0 {
+		config.Performance.Workers = 10
+	}
+	if config.Performance.DataChannelBuffer == 0 {
+		config.Performance.DataChannelBuffer = 50000
+	}
+
+	// 设置WebSocket配置默认值
+	if config.WebSocket.ReconnectDelaySeconds == 0 {
+		config.WebSocket.ReconnectDelaySeconds = 5
+	}
+	if config.WebSocket.MaxReconnectAttempts == 0 {
+		config.WebSocket.MaxReconnectAttempts = 5
+	}
+
 	return &config, nil
 }
 
@@ -122,20 +205,7 @@ func GetDefaultStartTime() time.Time {
 	return time.Now().AddDate(0, 0, -1) // 默认从1天前开始
 }
 
-// LoadCollectorState 加载收集器状态（为了兼容性，调用collector_state.go中的函数）
-func (c *Config) LoadCollectorState() (map[string]map[string]time.Time, error) {
-	return LoadCollectorState()
-}
-
-// SaveCollectorState 保存收集器状态（为了兼容性，调用collector_state.go中的函数）
-func (c *Config) SaveCollectorState(states map[string]map[string]time.Time) error {
-	return SaveCollectorState(states)
-}
-
-// UpdateCollectorState 更新收集器状态
-func (c *Config) UpdateCollectorState(symbol, interval string, lastTime time.Time) error {
-	return UpdateCollectorState(symbol, interval, lastTime)
-}
+// Note: 断点续传功能已移除，WebSocket模式不需要状态管理
 
 // NewHTTPClient 创建HTTP客户端
 func (c *Config) NewHTTPClient() *http.Client {

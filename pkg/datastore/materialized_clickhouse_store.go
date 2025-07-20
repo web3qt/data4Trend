@@ -50,10 +50,10 @@ func NewMaterializedClickHouseStore(cfg *ClickHouseConfig, input <-chan *types.K
 		Settings: clickhouse.Settings{
 			"max_execution_time": 60,
 		},
-		DialTimeout:      time.Second * 30,
-		MaxOpenConns:     50,
-		MaxIdleConns:     20,
-		ConnMaxLifetime:  time.Hour,
+		DialTimeout:     time.Second * 30,
+		MaxOpenConns:    50,
+		MaxIdleConns:    20,
+		ConnMaxLifetime: time.Hour,
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		},
@@ -106,7 +106,7 @@ func NewMaterializedClickHouseStore(cfg *ClickHouseConfig, input <-chan *types.K
 func (s *MaterializedClickHouseStore) getTableNameForInterval(interval string) string {
 	switch interval {
 	case "1m":
-		return "kline_raw" // 1分钟数据存储在原始表中
+		return "klines_1m" // 1分钟数据存储在原始表中
 	case "5m":
 		return "kline_5m"
 	case "15m":
@@ -157,23 +157,16 @@ func (s *MaterializedClickHouseStore) writeDataPoint(data *types.KLineData) erro
 		return nil
 	}
 
-	// 生成唯一ID
-	s.idMu.Lock()
-	s.idCounter++
-	id := s.idCounter
-	s.idMu.Unlock()
-
 	// 准备插入语句
 	query := `
-		INSERT INTO kline_raw (
-			id, symbol, open_time, close_time, 
-			open_price, high_price, low_price, close_price, volume
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO klines_1m (
+			symbol, open_time, close_time, 
+			open, high, low, close, volume
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	// 执行插入
 	err := s.conn.Exec(context.Background(), query,
-		id,
 		data.Symbol,
 		data.OpenTime,
 		data.CloseTime,
@@ -189,7 +182,7 @@ func (s *MaterializedClickHouseStore) writeDataPoint(data *types.KLineData) erro
 			"symbol":    data.Symbol,
 			"interval":  data.Interval,
 			"open_time": data.OpenTime,
-		}).Error("插入数据到kline_raw表失败")
+		}).Error("插入数据到klines_1m表失败")
 		return fmt.Errorf("插入数据失败: %w", err)
 	}
 
@@ -406,7 +399,7 @@ func (s *MaterializedClickHouseStore) GetAvailableSymbols(ctx context.Context) (
 			count() as total_records,
 			min(open_time) as first_record,
 			max(open_time) as last_record
-		FROM kline_raw
+		FROM klines_1m
 		GROUP BY symbol
 		ORDER BY symbol
 	`
@@ -498,7 +491,7 @@ func (s *MaterializedClickHouseStore) DeleteKLinesInTimeRange(ctx context.Contex
 	}
 
 	query := `
-		ALTER TABLE kline_raw DELETE 
+		ALTER TABLE klines_1m DELETE 
 		WHERE symbol = ? AND open_time >= ? AND open_time <= ?
 	`
 

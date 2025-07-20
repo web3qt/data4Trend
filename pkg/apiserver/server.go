@@ -63,6 +63,10 @@ func NewServer(store datastore.Store) *Server {
 
 // 注册API路由
 func (s *Server) registerRoutes() {
+	// 健康检查路由（不需要版本前缀）
+	s.router.GET("/health", s.handleHealth)
+	s.router.GET("/api/health", s.handleHealth)
+
 	apiGroup := s.router.Group("/api/v1")
 	{
 		apiGroup.GET("/klines", s.handleGetKlines)
@@ -76,6 +80,10 @@ func (s *Server) registerRoutes() {
 		apiGroup.POST("/fix_gaps", s.handleFixGaps)           // 修复数据缺口
 		apiGroup.DELETE("/klines", s.handleDeleteKlines)      // 删除指定时间范围的K线数据
 	}
+
+	// 兼容性路由（无版本前缀）
+	s.router.GET("/api/stats", s.handleGetStats)
+	s.router.GET("/api/websocket/status", s.handleWebSocketStatus)
 }
 
 // Start 启动API服务器
@@ -720,7 +728,28 @@ func (s *Server) handleDeleteKlines(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"message": fmt.Sprintf("成功删除 %s 交易对在 %s 到 %s 时间范围内的 %s 时间周期K线数据", 
+		"message": fmt.Sprintf("成功删除 %s 交易对在 %s 到 %s 时间范围内的 %s 时间周期K线数据",
 			symbol, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339), interval),
+	})
+}
+
+// handleHealth 健康检查
+func (s *Server) handleHealth(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "ok",
+		"timestamp": time.Now().Unix(),
+		"service":   "websocket-collector",
+	})
+}
+
+// handleWebSocketStatus WebSocket状态检查
+func (s *Server) handleWebSocketStatus(c *gin.Context) {
+	s.subsMutex.RLock()
+	defer s.subsMutex.RUnlock()
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":             "ok",
+		"active_connections": len(s.subscriptions),
+		"timestamp":          time.Now().Unix(),
 	})
 }

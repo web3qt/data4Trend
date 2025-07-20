@@ -1,0 +1,92 @@
+# WebSocket 1分钟K线数据收集配置
+# 专门收集币安所有代币的1分钟数据，只保留最近7天
+
+# 数据库配置
+clickhouse:
+  host: "localhost"
+  port: 9000
+  http_port: 8123
+  database: "data4trend"
+  user: "default"
+  password: "123456"
+  max_open_conns: 20
+  max_idle_conns: 10
+  conn_max_lifetime: "1h"
+
+# Binance API配置（用于获取币种列表）
+binance:
+  api_key: ""
+  secret_key: ""
+  base_url: "https://api.binance.com"
+
+# HTTP客户端配置（用于REST API调用）
+http:
+  timeout: 30
+  proxy: "http://127.0.0.1:7890"  # 本地代理配置
+
+# 性能配置（优化WebSocket连接）
+performance:
+  workers: 10                    # 工作协程数（WebSocket不需要太多）
+  data_channel_buffer: 50000     # 数据通道缓冲区（大量币种实时数据）
+  task_queue_size: 1000          # 任务队列大小
+  websocket_batch_size: 100      # WebSocket连接批次大小（使用combined stream减少连接数）
+  connection_interval_ms: 500    # 连接间隔（毫秒）- 减缓连接速度以避免超过限制
+  batch_interval_s: 2           # 批次间隔（秒）
+
+# 数据管理配置
+data_management:
+  retention_days: 7              # 数据保留天数
+  cleanup_interval_hours: 1      # 清理间隔（小时）
+  max_symbols: 0                 # 最大币种数（0表示无限制）
+
+# 日志配置
+log:
+  level: "info"
+  format: "json"
+  output_path: "logs/websocket_1m.log"
+  max_size: 200
+  max_backups: 5
+  max_age: 7
+  compress: true
+
+# 币种过滤配置
+symbol_filter:
+  # 只收集USDT交易对
+  base_currency: "USDT"
+  
+  # 排除的币种（稳定币等）
+  excluded_symbols:
+    - "USDCUSDT"
+    - "BUSDUSDT" 
+    - "TUSDUSDT"
+    - "USDPUSDT"
+    - "DAIUSDT"
+    - "PAXUSDT"
+    - "GUSDUSDT"
+  
+  # 最小交易量过滤（防止无效币种）
+  min_volume_filter: true
+  min_volume_threshold: 1000  # 最小24小时交易量（USDT）
+
+# 监控和统计配置
+monitoring:
+  enable_stats: true             # 启用统计信息
+  stats_interval_minutes: 5      # 统计间隔（分钟）
+  enable_health_check: true      # 启用健康检查
+  health_check_interval_minutes: 1  # 健康检查间隔（分钟）
+
+# WebSocket连接配置
+websocket:
+  reconnect_delay_seconds: 5     # 重连延迟（秒）
+  max_reconnect_attempts: 5      # 最大重连次数（0表示无限重连）
+  ping_interval_seconds: 30      # ping间隔（秒）
+  connection_timeout_seconds: 10 # 连接超时（秒）
+  read_timeout_seconds: 60       # 读取超时（秒）
+  write_timeout_seconds: 10      # 写入超时（秒）
+
+# API服务器配置（可选）
+server:
+  port: 8081
+  enable_cors: true
+  enable_websocket_api: true     # 启用WebSocket API
+  enable_rest_api: true          # 启用REST API 

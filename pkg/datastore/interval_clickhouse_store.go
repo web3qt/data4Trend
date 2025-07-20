@@ -50,10 +50,10 @@ func NewIntervalClickHouseStore(cfg *ClickHouseConfig, input <-chan *types.KLine
 		Settings: clickhouse.Settings{
 			"max_execution_time": 60,
 		},
-		DialTimeout:      time.Second * 30,
-		MaxOpenConns:     50,
-		MaxIdleConns:     20,
-		ConnMaxLifetime:  time.Hour,
+		DialTimeout:     time.Second * 30,
+		MaxOpenConns:    50,
+		MaxIdleConns:    20,
+		ConnMaxLifetime: time.Hour,
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		},
@@ -109,12 +109,12 @@ func NewIntervalClickHouseStore(cfg *ClickHouseConfig, input <-chan *types.KLine
 func (s *IntervalClickHouseStore) getTableName(interval string) string {
 	// 标准化时间级别名称
 	interval = strings.ToLower(interval)
-	
-	// 1分钟数据存储在 kline_raw 表中
+
+	// 1分钟数据存储在 klines_1m 表中
 	if interval == "1m" {
-		return "kline_raw"
+		return "klines_1m"
 	}
-	
+
 	// 其他时间间隔使用分表
 	return fmt.Sprintf("kline_%s", interval)
 }
@@ -155,27 +155,23 @@ func (s *IntervalClickHouseStore) writeDataPoint(data *types.KLineData) error {
 
 	// 根据时间级别确定表名
 	tableName := s.getTableName(data.Interval)
-	
+
 	// 确保表存在
 	if err := s.ensureTableExists(tableName, data.Interval); err != nil {
 		return fmt.Errorf("确保表存在失败: %w", err)
 	}
 
-	// 生成唯一ID
-	s.idMu.Lock()
-	id := s.idCounter
-	s.idCounter++
-	s.idMu.Unlock()
+
 
 	// 使用批量插入提高性能
 	batch, err := s.conn.PrepareBatch(context.Background(), fmt.Sprintf(`
-		INSERT INTO %s (id, symbol, open_time, close_time, open_price, high_price, low_price, close_price, volume, created_at, updated_at)
+		INSERT INTO %s (symbol, open_time, close_time, open, high, low, close, volume, quote_asset_volume, number_of_trades, taker_buy_base_asset_volume, taker_buy_quote_asset_volume, interval)
 	`, tableName))
 	if err != nil {
 		return fmt.Errorf("准备批量插入失败: %w", err)
 	}
 
-	now := time.Now()
+
 	// 使用兼容性字段处理
 	openPrice := data.OpenPrice
 	if openPrice == 0 {
@@ -195,7 +191,6 @@ func (s *IntervalClickHouseStore) writeDataPoint(data *types.KLineData) error {
 	}
 
 	err = batch.Append(
-		id,
 		data.Symbol,
 		data.OpenTime,
 		data.CloseTime,
@@ -204,8 +199,11 @@ func (s *IntervalClickHouseStore) writeDataPoint(data *types.KLineData) error {
 		lowPrice,
 		closePrice,
 		data.Volume,
-		now,
-		now,
+		data.QuoteAssetVolume,
+		data.NumberOfTrades,
+		data.TakerBuyBaseVolume,
+		data.TakerBuyQuoteVolume,
+		data.Interval,
 	)
 	if err != nil {
 		return fmt.Errorf("添加数据到批量插入失败: %w", err)
@@ -375,4 +373,4 @@ func (s *IntervalClickHouseStore) GetConn() clickhouse.Conn {
 }
 
 // calculateIntervalDuration 计算时间间隔的持续时间
-// calculateIntervalDuration 函数已在 clickhouse_store.go 中定义，无需重复 
+// calculateIntervalDuration 函数已在 clickhouse_store.go 中定义，无需重复
