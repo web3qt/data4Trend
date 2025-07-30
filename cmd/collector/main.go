@@ -17,6 +17,7 @@ import (
 	"data4trend/pkg/config"
 	"data4trend/pkg/monitoring"
 	"data4trend/pkg/storage"
+	"data4trend/pkg/validation"
 	"data4trend/pkg/websocket"
 )
 
@@ -95,9 +96,14 @@ func main() {
 	monitor.LogSystemInfo()
 	monitor.Start()
 
+	// Initialize data validation
+	logger.Info("Initializing data validation system...")
+	validator := validation.NewDataValidator(storage, cfg, logger)
+	validator.Start()
+
 	// Initialize API server
 	logger.Info("Initializing API server...")
-	apiServer := api.NewServer(cfg, storage, websocketClient, logger)
+	apiServer := api.NewServer(cfg, storage, websocketClient, validator, logger)
 
 	// Setup graceful shutdown
 	_, cancel := context.WithCancel(context.Background())
@@ -139,7 +145,10 @@ func main() {
 	// Cancel context to signal shutdown
 	cancel()
 
-	// Stop WebSocket client
+	// Stop services
+	logger.Info("Stopping data validation...")
+	validator.Stop()
+	
 	logger.Info("Stopping WebSocket client...")
 	websocketClient.Stop()
 

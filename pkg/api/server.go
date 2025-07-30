@@ -12,6 +12,7 @@ import (
 	"data4trend/pkg/backfill"
 	"data4trend/pkg/config"
 	"data4trend/pkg/storage"
+	"data4trend/pkg/validation"
 	"data4trend/pkg/websocket"
 )
 
@@ -21,12 +22,13 @@ type Server struct {
 	storage   *storage.ClickHouseStorage
 	websocket *websocket.Client
 	backfill  *backfill.BackfillService
+	validator *validation.DataValidator
 	logger    *logrus.Logger
 	router    *gin.Engine
 }
 
 // NewServer creates a new API server
-func NewServer(cfg *config.Config, storage *storage.ClickHouseStorage, ws *websocket.Client, logger *logrus.Logger) *Server {
+func NewServer(cfg *config.Config, storage *storage.ClickHouseStorage, ws *websocket.Client, validator *validation.DataValidator, logger *logrus.Logger) *Server {
 	// Set gin mode
 	gin.SetMode(gin.ReleaseMode)
 
@@ -43,6 +45,7 @@ func NewServer(cfg *config.Config, storage *storage.ClickHouseStorage, ws *webso
 		storage:   storage,
 		websocket: ws,
 		backfill:  backfillService,
+		validator: validator,
 		logger:    logger,
 		router:    router,
 	}
@@ -68,6 +71,12 @@ func (s *Server) setupRoutes() {
 		v1.GET("/backfill/status", s.getBackfillStatus)
 		v1.POST("/backfill/symbol/:symbol", s.backfillSymbol)
 		v1.POST("/backfill/all", s.backfillAll)
+		
+		// Data validation routes
+		v1.GET("/validation/status", s.getValidationStatus)
+		v1.POST("/validation/run", s.runValidation)
+		v1.GET("/validation/gaps", s.getDataGaps)
+		v1.GET("/validation/quality", s.getDataQuality)
 	}
 
 	// Static files (if needed)
@@ -197,6 +206,59 @@ func corsMiddleware() gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+// getValidationStatus returns the current validation status
+func (s *Server) getValidationStatus(c *gin.Context) {
+	result := s.validator.GetLastValidationResult()
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   result,
+	})
+}
+
+// runValidation triggers a manual validation check
+func (s *Server) runValidation(c *gin.Context) {
+	s.logger.Info("Manual validation triggered via API")
+	result := s.validator.RunManualValidation()
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "Validation completed",
+		"data":    result,
+	})
+}
+
+// getDataGaps returns data gaps for all symbols
+func (s *Server) getDataGaps(c *gin.Context) {
+	gaps, err := s.storage.GetDataGapsForAllSymbols()
+	if err != nil {
+		s.logger.Errorf("Failed to get data gaps: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status": "error",
+			"error":  err.Error(),
+		})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   gaps,
+	})
+}
+
+// getDataQuality returns data quality metrics
+func (s *Server) getDataQuality(c *gin.Context) {
+	result := s.validator.GetLastValidationResult()
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data": gin.H{
+			"timestamp":    result.Timestamp,
+			"overall_score": result.DataQuality.OverallScore,
+			"metrics":      result.DataQuality,
+			"issues_count": len(result.Issues),
+			"gaps_count":   len(result.DataGaps),
+		},
+	})
 }
 
 // loggingMiddleware logs HTTP requests

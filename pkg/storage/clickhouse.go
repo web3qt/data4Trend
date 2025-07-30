@@ -231,6 +231,149 @@ func (s *ClickHouseStorage) GetKlineData(symbol string, limit int, startTime, en
 	return result, nil
 }
 
+// GetDuplicateRecords checks for duplicate records in the last 24 hours
+func (s *ClickHouseStorage) GetDuplicateRecords() (map[string]int, error) {
+	ctx := context.Background()
+	result := make(map[string]int)
+	
+	query := fmt.Sprintf(`
+		SELECT 
+			symbol,
+			COUNT(*) as duplicate_count
+		FROM (
+			SELECT 
+				symbol, 
+				open_time,
+				COUNT(*) as cnt
+			FROM %s.%s 
+			WHERE created_at >= now() - INTERVAL 24 HOUR
+			GROUP BY symbol, open_time
+			HAVING cnt > 1
+		) duplicates
+		GROUP BY symbol
+	`, s.config.Database.Database, s.config.Database.Table)
+	
+	rows, err := s.conn.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check duplicates: %w", err)
+	}
+	defer rows.Close()
+	
+	for rows.Next() {
+		var symbol string
+		var count int
+		if err := rows.Scan(&symbol, &count); err != nil {
+			continue
+		}
+		result[symbol] = count
+	}
+	
+	return result, nil
+}
+
+// GetStaleDataSymbols returns symbols with stale data (no updates in last 5 minutes)
+func (s *ClickHouseStorage) GetStaleDataSymbols() (map[string]time.Duration, error) {
+	ctx := context.Background()
+	result := make(map[string]time.Duration)
+	
+	query := fmt.Sprintf(`
+		SELECT 
+			symbol,
+			MAX(created_at) as last_update,
+			now() - MAX(created_at) as delay_seconds
+		FROM %s.%s 
+		GROUP BY symbol
+		HAVING delay_seconds > 300
+	`, s.config.Database.Database, s.config.Database.Table)
+	
+	rows, err := s.conn.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check stale data: %w", err)
+	}
+	defer rows.Close()
+	
+	for rows.Next() {
+		var symbol string
+		var lastUpdate time.Time
+		var delaySeconds int64
+		if err := rows.Scan(&symbol, &lastUpdate, &delaySeconds); err != nil {
+			continue
+		}
+		result[symbol] = time.Duration(delaySeconds) * time.Second
+	}
+	
+	return result, nil
+}
+
+// GetAnomalousData detects anomalous data points (extreme price movements)
+func (s *ClickHouseStorage) GetAnomalousData() ([]map[string]interface{}, error) {
+	ctx := context.Background()
+	result := []map[string]interface{}{}
+	
+	// Check for extreme price movements (>50% change in 1 minute)
+	query := fmt.Sprintf(`
+		SELECT 
+			symbol,
+			open_time,
+			open_price,
+			close_price,
+			(close_price - open_price) / open_price * 100 as price_change_pct
+		FROM %s.%s 
+		WHERE created_at >= now() - INTERVAL 24 HOUR
+			AND abs((close_price - open_price) / open_price * 100) > 50
+		ORDER BY abs(price_change_pct) DESC
+		LIMIT 100
+	`, s.config.Database.Database, s.config.Database.Table)
+	
+	rows, err := s.conn.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check anomalous data: %w", err)
+	}
+	defer rows.Close()
+	
+	for rows.Next() {
+		var symbol string
+		var openTime int64
+		var openPrice, closePrice, priceChangePct float64
+		if err := rows.Scan(&symbol, &openTime, &openPrice, &closePrice, &priceChangePct); err != nil {
+			continue
+		}
+		
+		result = append(result, map[string]interface{}{
+			"symbol":           symbol,
+			"timestamp":        time.Unix(openTime/1000, 0),
+			"open_price":       openPrice,
+			"close_price":      closePrice,
+			"price_change_pct": priceChangePct,
+			"description":      fmt.Sprintf("Extreme price movement: %.2f%%", priceChangePct),
+		})
+	}
+	
+	return result, nil
+}
+
+// StoreValidationResult stores validation results to database
+func (s *ClickHouseStorage) StoreValidationResult(timestamp time.Time, overallStatus string, totalSymbols, healthySymbols int, completenessScore, accuracyScore, consistencyScore, timelinessScore, overallScore float64, issuesCount int) error {
+	ctx := context.Background()
+	
+	query := fmt.Sprintf(`
+		INSERT INTO %s.data_quality_metrics (
+			timestamp, overall_status, total_symbols, healthy_symbols,
+			completeness_score, accuracy_score, consistency_score, 
+			timeliness_score, overall_score, issues_count
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, s.config.Database.Database)
+	
+	err := s.conn.Exec(ctx, query, timestamp, overallStatus, totalSymbols, healthySymbols,
+		completenessScore, accuracyScore, consistencyScore, timelinessScore, overallScore, issuesCount)
+	
+	if err != nil {
+		return fmt.Errorf("failed to store validation result: %w", err)
+	}
+	
+	return nil
+}
+
 // GetStats returns database statistics
 func (s *ClickHouseStorage) GetStats() (map[string]interface{}, error) {
 	ctx := context.Background()
