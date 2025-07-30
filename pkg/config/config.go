@@ -16,17 +16,25 @@ type Config struct {
 	Database  DatabaseConfig  `yaml:"database"`
 	API       APIConfig       `yaml:"api"`
 	Proxy     ProxyConfig     `yaml:"proxy"`
-	Symbols   []string        `yaml:"symbols"`
+	Symbols   []string        `yaml:"symbols,omitempty"`
 	Interval  string          `yaml:"interval"`
 }
 
 // WebSocketConfig represents WebSocket configuration
 type WebSocketConfig struct {
-	BaseURL           string `yaml:"base_url"`
-	ReconnectInterval int    `yaml:"reconnect_interval"`
-	PingInterval      int    `yaml:"ping_interval"`
-	MaxRetries        int    `yaml:"max_retries"`
-	Timeout           int    `yaml:"timeout"`
+	BaseURL           string       `yaml:"base_url"`
+	ReconnectInterval int          `yaml:"reconnect_interval"`
+	PingInterval      int          `yaml:"ping_interval"`
+	MaxRetries        int          `yaml:"max_retries"`
+	Timeout           int          `yaml:"timeout"`
+	AutoFetchSymbols  bool         `yaml:"auto_fetch_symbols"`
+	SymbolFilter      SymbolFilter `yaml:"symbol_filter"`
+}
+
+// SymbolFilter represents symbol filtering configuration
+type SymbolFilter struct {
+	QuoteAsset       string   `yaml:"quote_asset"`
+	ExcludePatterns  []string `yaml:"exclude_patterns"`
 }
 
 // DatabaseConfig represents database configuration
@@ -199,10 +207,14 @@ func (c *Config) GetDSN() string {
 		c.Database.Database)
 }
 
-// GetProxyURL returns the proxy URL if enabled
+// GetProxyURL returns the proxy URL
 func (c *Config) GetProxyURL() string {
 	if !c.Proxy.Enabled {
 		return ""
 	}
-	return fmt.Sprintf("%s://%s:%d", c.Proxy.Type, c.Proxy.Host, c.Proxy.Port)
+	scheme := "http"
+	if c.Proxy.Type == "socks5" {
+		scheme = "socks5"
+	}
+	return fmt.Sprintf("%s://%s:%d", scheme, c.Proxy.Host, c.Proxy.Port)
 }

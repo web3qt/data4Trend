@@ -20,7 +20,7 @@ export HTTP_PROXY=http://127.0.0.1:7890
 export HTTPS_PROXY=http://127.0.0.1:7890
 
 echo "🔧 代理设置: $HTTP_PROXY"
-echo "📊 配置文件: config/config_go_simple.yaml"
+echo "📊 配置文件: config/config.yaml"
 echo "🌐 API服务器: http://localhost:8080"
 echo "📈 健康检查: http://localhost:8080/health"
 echo "📊 统计信息: http://localhost:8080/api/v1/stats"
@@ -30,4 +30,4 @@ echo "按 Ctrl+C 停止程序"
 echo "==========================================="
 
 # 启动程序
-./bin/data4trend-collector --config=config/config_go_simple.yaml --log-level=info
+./bin/data4trend-collector --config=config/config.yaml --log-level=info

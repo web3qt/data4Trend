@@ -13,6 +13,16 @@ websocket:
   ping_interval: 30
   max_retries: 5
   timeout: 30
+  # symbols列表将从币安API动态获取
+  # 支持所有USDT交易对
+  auto_fetch_symbols: true
+  symbol_filter:
+    quote_asset: USDT
+    exclude_patterns:
+      - UP
+      - DOWN
+      - BEAR
+      - BULL
 
 api:
   host: "0.0.0.0"
@@ -20,20 +30,8 @@ api:
 
 proxy:
   enabled: true
-  type: "http"
+  type: "socks5"
   host: "127.0.0.1"
   port: 7890
-
-symbols:
-  - "BTCUSDT"
-  - "ETHUSDT"
-  - "BNBUSDT"
-  - "ADAUSDT"
-  - "DOTUSDT"
-  - "XRPUSDT"
-  - "LTCUSDT"
-  - "LINKUSDT"
-  - "BCHUSDT"
-  - "XLMUSDT"
 
 interval: "1m"

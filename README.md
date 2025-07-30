@@ -17,13 +17,19 @@
 
 ### 启动程序
 ```bash
-# 使用简化启动脚本（推荐）
-./start_go_simple.sh
+# 使用启动脚本（推荐）
+./start.sh
 
 # 或手动启动
 export HTTP_PROXY=http://127.0.0.1:7890
 export HTTPS_PROXY=http://127.0.0.1:7890
-./bin/data4trend-collector --config=config/config_go_simple.yaml --log-level=info
+./data4trend-collector --config=config/config.yaml --log-level=info
+```
+
+### 数据库管理
+```bash
+# 清理数据库，重新开始
+./clean_database.sh
 ```
 
 ### 编译程序
@@ -129,8 +135,28 @@ data4Trend/
 
 ### 配置文件
 
-- `config_go_simple.yaml`: 简化配置，监控10个主要交易对
-- `config_go.yaml`: 完整配置，可自定义更多参数
+- `config.yaml`: 主配置文件，支持动态获取币安所有USDT交易对
+
+### 动态交易对获取
+
+程序启动时会自动从币安API获取所有可用的USDT交易对，无需手动配置交易对列表：
+
+- **自动获取**: 从币安API实时获取所有USDT交易对（通常400+个）
+- **智能过滤**: 自动排除杠杆代币（UP/DOWN/BEAR/BULL）
+- **状态检查**: 只监控状态为TRADING且支持现货交易的交易对
+- **配置灵活**: 可通过配置文件控制是否启用自动获取
+
+```yaml
+websocket:
+  auto_fetch_symbols: true    # 启用自动获取
+  symbol_filter:
+    quote_asset: USDT         # 只获取USDT交易对
+    exclude_patterns:         # 排除包含这些模式的交易对
+      - UP
+      - DOWN
+      - BEAR
+      - BULL
+```
 
 ## 📈 常用查询
 

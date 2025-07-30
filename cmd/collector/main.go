@@ -13,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"data4trend/pkg/api"
+	"data4trend/pkg/binance"
 	"data4trend/pkg/config"
 	"data4trend/pkg/monitoring"
 	"data4trend/pkg/storage"
@@ -20,7 +21,7 @@ import (
 )
 
 var (
-	configPath = flag.String("config", "config/config_conservative.yaml", "Path to configuration file")
+	configPath = flag.String("config", "config/config.yaml", "Path to configuration file")
 	logLevel   = flag.String("log-level", "info", "Log level (debug, info, warn, error)")
 	version    = "1.0.0"
 	buildTime  = "unknown"
@@ -53,7 +54,6 @@ func main() {
 	}
 
 	logger.Infof("Loaded configuration from: %s", *configPath)
-	logger.Infof("Monitoring %d symbols with %s interval", len(cfg.Symbols), cfg.Interval)
 	logger.Infof("Database: %s@%s:%d/%s", cfg.Database.Username, cfg.Database.Host, cfg.Database.Port, cfg.Database.Database)
 	logger.Infof("API server: %s:%d", cfg.API.Host, cfg.API.Port)
 
@@ -62,6 +62,19 @@ func main() {
 	} else {
 		logger.Info("Direct connection (no proxy)")
 	}
+
+	// Initialize symbol service and fetch symbols
+	logger.Info("Initializing symbol service...")
+	symbolService := binance.NewSymbolService(cfg, logger)
+	symbols, err := symbolService.GetSymbolsWithRetry(3)
+	if err != nil {
+		logger.Fatalf("Failed to fetch symbols: %v", err)
+	}
+
+	// Update config with fetched symbols
+	cfg.Symbols = symbols
+	logger.Infof("Monitoring %d symbols with %s interval", len(cfg.Symbols), cfg.Interval)
+	logger.Debugf("Symbols: %v", cfg.Symbols)
 
 	// Initialize storage
 	logger.Info("Initializing ClickHouse storage...")
