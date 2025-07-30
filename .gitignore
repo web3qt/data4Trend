@@ -1,6 +1,17 @@
-# 编译输出
-/target/
-**/*.rs.bk
+# Go编译输出
+/bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go测试文件
+*.test
+*.out
+
+# Go模块缓存
+go.sum
 
 # 日志文件
 *.log
@@ -8,6 +19,7 @@ logs/
 
 # 本地配置文件
 /local_config.*
+config/local_*
 
 # IDE相关
 .idea/
@@ -17,11 +29,22 @@ logs/
 
 # 环境文件
 .env
+.env.local
 
-# 二进制文件
-/bin/
+# 临时文件
+*.tmp
+*.temp
 
-/binance_ws_collector/
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 数据文件
+/data/clickhouse/
+
+# 调试和分析文件
+*.pprof
+*.trace
+
+# 其他
 .claude
-/logs/
-/target/

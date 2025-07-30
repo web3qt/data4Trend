@@ -1,0 +1,21 @@
+FROM alpine:latest
+
+WORKDIR /app
+
+# 安装运行时依赖
+RUN apk --no-cache add ca-certificates tzdata curl
+
+# 设置时区为亚洲/上海
+ENV TZ=Asia/Shanghai
+
+# 复制本地构建的二进制文件
+COPY target/release/binance_ws_collector /app/binance_ws_collector
+
+# 创建配置和日志目录
+RUN mkdir -p /app/config /app/logs
+
+# 暴露API端口
+EXPOSE 8080
+
+# 运行应用
+CMD ["/app/binance_ws_collector", "--config", "/app/config/config.yaml"]

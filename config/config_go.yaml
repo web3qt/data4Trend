@@ -1,0 +1,47 @@
+# Data4Trend Go版本配置文件
+# 币安WebSocket数据收集器配置
+
+# WebSocket配置
+websocket:
+  base_url: "wss://stream.binance.com:9443"
+  reconnect_interval: 5  # 重连间隔(秒)
+  ping_interval: 20      # ping间隔(秒)
+  max_retries: 10        # 最大重试次数
+  timeout: 30            # 连接超时(秒)
+
+# 数据库配置
+database:
+  host: "localhost"
+  port: 8123
+  database: "data4trend"
+  username: "default"
+  password: "123456"
+  table: "klines_1m"
+
+# API服务器配置
+api:
+  host: "0.0.0.0"
+  port: 8080
+
+# 代理配置
+proxy:
+  enabled: true
+  type: "http"           # http 或 socks5
+  host: "127.0.0.1"
+  port: 7890
+
+# 监控的交易对
+symbols:
+  - "BTCUSDT"
+  - "ETHUSDT"
+  - "BNBUSDT"
+  - "ADAUSDT"
+  - "DOTUSDT"
+  - "XRPUSDT"
+  - "LTCUSDT"
+  - "LINKUSDT"
+  - "BCHUSDT"
+  - "XLMUSDT"
+
+# K线间隔
+interval: "1m"
