@@ -59,6 +59,21 @@ curl "http://localhost:8080/api/v1/klines/BTCUSDT?limit=5"
 curl "http://localhost:8080/api/v1/klines/ETHUSDT?limit=10&start_time=1640995200000&end_time=1640998800000"
 ```
 
+### 数据回填接口
+```bash
+# 检查数据缺口状态
+curl http://localhost:8080/api/v1/backfill/status
+
+# 回填特定交易对的数据（默认最近24小时）
+curl -X POST http://localhost:8080/api/v1/backfill/symbol/BTCUSDT
+
+# 回填特定时间范围的数据
+curl -X POST 'http://localhost:8080/api/v1/backfill/symbol/BTCUSDT?start_time=2025-07-30T04:00:00Z&end_time=2025-07-30T04:10:00Z'
+
+# 回填所有交易对的数据缺口
+curl -X POST http://localhost:8080/api/v1/backfill/all
+```
+
 ## 📊 数据库连接
 
 ### ClickHouse连接信息
@@ -138,6 +153,70 @@ SELECT
 FROM data4trend.klines_1m 
 GROUP BY symbol;
 ```
+
+## 🔄 数据回填机制
+
+### 工作原理
+
+数据回填机制是为了解决程序重启或网络中断导致的数据缺失问题。系统通过以下步骤实现智能数据回填：
+
+#### 1. 数据缺口检测
+- **时间序列生成**: 使用ClickHouse的`numbers()`函数生成连续的1分钟时间序列
+- **实际数据对比**: 查询数据库中已存在的数据记录
+- **缺口识别**: 通过LEFT JOIN找出时间序列中缺失的数据点
+
+```sql
+WITH 
+    time_series AS (
+        SELECT toDateTime(number * 60 + toUnixTimestamp(toDateTime('start_time'))) as expected_time
+        FROM numbers(dateDiff('minute', toDateTime('start_time'), toDateTime('end_time')) + 1)
+    ),
+    actual_data AS (
+        SELECT DISTINCT toDateTime(toInt64(open_time) / 1000) as actual_time
+        FROM data4trend.klines_1m 
+        WHERE symbol = 'BTCUSDT' AND ...
+    )
+SELECT expected_time
+FROM time_series
+LEFT JOIN actual_data ON time_series.expected_time = actual_data.actual_time
+WHERE actual_data.actual_time IS NULL
+```
+
+#### 2. 历史数据获取
+- **币安API调用**: 使用币安REST API获取历史K线数据
+- **代理支持**: 自动使用配置的HTTP代理
+- **速率限制**: 内置100ms请求间隔，避免触发API限制
+- **数据转换**: 将币安API返回的数据转换为内部格式
+
+#### 3. 数据插入
+- **批量插入**: 使用ClickHouse的批量插入功能提高效率
+- **重复检测**: 数据库层面的去重机制
+- **事务安全**: 确保数据一致性
+
+#### 4. 回填策略
+- **按需回填**: 支持特定交易对和时间范围的回填
+- **全量回填**: 检测所有交易对的数据缺口并自动回填
+- **智能分组**: 将连续的缺失时间点合并为时间段，减少API调用次数
+
+### 使用场景
+
+1. **程序重启后**: 自动检测停机期间的数据缺失并回填
+2. **网络中断**: 恢复连接后补充中断期间的数据
+3. **历史数据补充**: 获取项目启动前的历史数据
+4. **数据质量保证**: 定期检查和修复数据完整性
+
+### 数据保留策略
+
+- **自动清理**: ClickHouse TTL机制自动删除7天前的数据
+- **存储优化**: 列式存储和压缩，节省存储空间
+- **性能保证**: 定期清理确保查询性能
+
+### 监控和状态
+
+通过API接口可以实时监控回填状态：
+- 检测到的数据缺口数量
+- 各交易对的缺失情况
+- 回填操作的成功率和耗时
 
 ## 🔧 代理设置
 

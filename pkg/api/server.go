@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 
+	"data4trend/pkg/backfill"
 	"data4trend/pkg/config"
 	"data4trend/pkg/storage"
 	"data4trend/pkg/websocket"
@@ -19,6 +20,7 @@ type Server struct {
 	config    *config.Config
 	storage   *storage.ClickHouseStorage
 	websocket *websocket.Client
+	backfill  *backfill.BackfillService
 	logger    *logrus.Logger
 	router    *gin.Engine
 }
@@ -33,10 +35,14 @@ func NewServer(cfg *config.Config, storage *storage.ClickHouseStorage, ws *webso
 	router.Use(corsMiddleware())
 	router.Use(loggingMiddleware(logger))
 
+	// Initialize backfill service
+	backfillService := backfill.NewBackfillService(cfg, storage, logger)
+
 	server := &Server{
 		config:    cfg,
 		storage:   storage,
 		websocket: ws,
+		backfill:  backfillService,
 		logger:    logger,
 		router:    router,
 	}
@@ -57,6 +63,11 @@ func (s *Server) setupRoutes() {
 		v1.GET("/stats", s.getStats)
 		v1.GET("/websocket/stats", s.getWebSocketStats)
 		v1.GET("/symbols", s.getSymbols)
+		
+		// Backfill routes
+		v1.GET("/backfill/status", s.getBackfillStatus)
+		v1.POST("/backfill/symbol/:symbol", s.backfillSymbol)
+		v1.POST("/backfill/all", s.backfillAll)
 	}
 
 	// Static files (if needed)
@@ -214,4 +225,116 @@ func loggingMiddleware(logger *logrus.Logger) gin.HandlerFunc {
 			"path":       path,
 		}).Info("HTTP Request")
 	}
+}
+
+// getBackfillStatus handles backfill status requests
+func (s *Server) getBackfillStatus(c *gin.Context) {
+	status, err := s.backfill.GetBackfillStatus()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to get backfill status",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   status,
+	})
+}
+
+// backfillSymbol handles symbol-specific backfill requests
+func (s *Server) backfillSymbol(c *gin.Context) {
+	symbol := c.Param("symbol")
+	if symbol == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Symbol parameter is required",
+		})
+		return
+	}
+
+	// Parse optional time range parameters
+	startTimeStr := c.Query("start_time")
+	endTimeStr := c.Query("end_time")
+
+	// Default to last 24 hours if not specified
+	endTime := time.Now()
+	startTime := endTime.Add(-24 * time.Hour)
+
+	if startTimeStr != "" {
+		if parsed, err := time.Parse("2006-01-02T15:04:05Z", startTimeStr); err == nil {
+			startTime = parsed
+		}
+	}
+
+	if endTimeStr != "" {
+		if parsed, err := time.Parse("2006-01-02T15:04:05Z", endTimeStr); err == nil {
+			endTime = parsed
+		}
+	}
+
+	s.logger.Infof("Starting backfill for symbol %s from %s to %s", 
+		symbol, startTime.Format("2006-01-02 15:04:05"), endTime.Format("2006-01-02 15:04:05"))
+
+	// Perform backfill
+	results, err := s.backfill.BackfillSymbol(symbol, startTime, endTime)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Backfill failed",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"symbol": symbol,
+		"start_time": startTime,
+		"end_time": endTime,
+		"results": results,
+	})
+}
+
+// backfillAll handles backfill requests for all symbols
+func (s *Server) backfillAll(c *gin.Context) {
+	s.logger.Info("Starting backfill for all symbols")
+
+	// Perform backfill for all symbols
+	allResults, err := s.backfill.BackfillAllSymbols()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Backfill failed",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// Calculate summary statistics
+	totalSymbols := len(allResults)
+	totalGaps := 0
+	totalSuccess := 0
+	totalFailed := 0
+
+	for _, results := range allResults {
+		totalGaps += len(results)
+		for _, result := range results {
+			if result.Success {
+				totalSuccess++
+			} else {
+				totalFailed++
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"summary": gin.H{
+			"total_symbols": totalSymbols,
+			"total_gaps": totalGaps,
+			"successful_backfills": totalSuccess,
+			"failed_backfills": totalFailed,
+		},
+		"results": allResults,
+	})
 }

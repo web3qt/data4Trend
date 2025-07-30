@@ -279,3 +279,142 @@ func (s *ClickHouseStorage) Close() error {
 func (s *ClickHouseStorage) TestConnection() error {
 	return s.conn.Ping(context.Background())
 }
+
+// DataGap represents a gap in the data
+type DataGap struct {
+	Symbol    string    `json:"symbol"`
+	StartTime time.Time `json:"start_time"`
+	EndTime   time.Time `json:"end_time"`
+	Missing   int       `json:"missing_count"`
+}
+
+// DetectDataGaps detects missing data gaps for a symbol within a time range
+func (s *ClickHouseStorage) DetectDataGaps(symbol string, startTime, endTime time.Time) ([]*DataGap, error) {
+	ctx := context.Background()
+	gaps := []*DataGap{}
+
+	// Query to find gaps in 1-minute intervals
+	query := fmt.Sprintf(`
+		WITH 
+			time_series AS (
+				SELECT toDateTime(number * 60 + toUnixTimestamp(toDateTime('%s'))) as expected_time
+				FROM numbers(dateDiff('minute', toDateTime('%s'), toDateTime('%s')) + 1)
+			),
+			actual_data AS (
+				SELECT DISTINCT toDateTime(toInt64(open_time) / 1000) as actual_time
+				FROM %s.%s 
+				WHERE symbol = '%s' 
+					AND toDateTime(toInt64(open_time) / 1000) >= toDateTime('%s') 
+					AND toDateTime(toInt64(open_time) / 1000) <= toDateTime('%s')
+			)
+		SELECT expected_time
+		FROM time_series
+		LEFT JOIN actual_data ON time_series.expected_time = actual_data.actual_time
+		WHERE actual_data.actual_time IS NULL
+		ORDER BY expected_time
+	`, 
+		startTime.Format("2006-01-02 15:04:05"),
+		startTime.Format("2006-01-02 15:04:05"),
+		endTime.Format("2006-01-02 15:04:05"),
+		s.config.Database.Database, s.config.Database.Table,
+		symbol,
+		startTime.Format("2006-01-02 15:04:05"),
+		endTime.Format("2006-01-02 15:04:05"))
+
+	rows, err := s.conn.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to detect gaps: %w", err)
+	}
+	defer rows.Close()
+
+	// Collect missing timestamps
+	missingTimes := []time.Time{}
+	for rows.Next() {
+		var missingTime time.Time
+		if err := rows.Scan(&missingTime); err != nil {
+			continue
+		}
+		missingTimes = append(missingTimes, missingTime)
+	}
+
+	// Group consecutive missing times into gaps
+	if len(missingTimes) == 0 {
+		return gaps, nil
+	}
+
+	gapStart := missingTimes[0]
+	gapEnd := missingTimes[0]
+	count := 1
+
+	for i := 1; i < len(missingTimes); i++ {
+		// Check if this timestamp is consecutive (1 minute after previous)
+		if missingTimes[i].Sub(missingTimes[i-1]) == time.Minute {
+			gapEnd = missingTimes[i]
+			count++
+		} else {
+			// Gap ended, create a DataGap
+			gaps = append(gaps, &DataGap{
+				Symbol:    symbol,
+				StartTime: gapStart,
+				EndTime:   gapEnd,
+				Missing:   count,
+			})
+			// Start new gap
+			gapStart = missingTimes[i]
+			gapEnd = missingTimes[i]
+			count = 1
+		}
+	}
+
+	// Add the last gap
+	gaps = append(gaps, &DataGap{
+		Symbol:    symbol,
+		StartTime: gapStart,
+		EndTime:   gapEnd,
+		Missing:   count,
+	})
+
+	return gaps, nil
+}
+
+// GetDataGapsForAllSymbols detects data gaps for all symbols in the last 24 hours
+func (s *ClickHouseStorage) GetDataGapsForAllSymbols() (map[string][]*DataGap, error) {
+	ctx := context.Background()
+	result := make(map[string][]*DataGap)
+
+	// Get all symbols
+	symbolQuery := fmt.Sprintf("SELECT DISTINCT symbol FROM %s.%s WHERE created_at >= now() - INTERVAL 24 HOUR", 
+		s.config.Database.Database, s.config.Database.Table)
+	
+	rows, err := s.conn.Query(ctx, symbolQuery)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get symbols: %w", err)
+	}
+	defer rows.Close()
+
+	symbols := []string{}
+	for rows.Next() {
+		var symbol string
+		if err := rows.Scan(&symbol); err != nil {
+			continue
+		}
+		symbols = append(symbols, symbol)
+	}
+
+	// Check gaps for each symbol in the last 24 hours
+	endTime := time.Now()
+	startTime := endTime.Add(-24 * time.Hour)
+
+	for _, symbol := range symbols {
+		gaps, err := s.DetectDataGaps(symbol, startTime, endTime)
+		if err != nil {
+			s.logger.Warnf("Failed to detect gaps for %s: %v", symbol, err)
+			continue
+		}
+		if len(gaps) > 0 {
+			result[symbol] = gaps
+		}
+	}
+
+	return result, nil
+}
