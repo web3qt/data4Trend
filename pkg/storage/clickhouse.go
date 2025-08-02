@@ -169,6 +169,11 @@ func (s *ClickHouseStorage) BatchInsertKlineData(dataList []*types.KlineData) er
 	return nil
 }
 
+// InsertKlineDataBatch is an alias for BatchInsertKlineData for compatibility
+func (s *ClickHouseStorage) InsertKlineDataBatch(dataList []*types.KlineData) error {
+	return s.BatchInsertKlineData(dataList)
+}
+
 // GetKlineData retrieves kline data from ClickHouse
 func (s *ClickHouseStorage) GetKlineData(symbol string, limit int, startTime, endTime *time.Time) ([]*types.KlineData, error) {
 	ctx := context.Background()

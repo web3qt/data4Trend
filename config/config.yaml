@@ -28,6 +28,27 @@ api:
   host: "0.0.0.0"
   port: 8080
 
+kafka:
+  brokers:
+    - "localhost:9092"
+  topic: "binance_klines"
+  producer:
+    batch_size: 100
+    batch_timeout: "1s"
+    compression: "snappy"
+    max_message_bytes: 1000000
+  consumer:
+    group_id: "data4trend_consumer"
+    auto_offset_reset: "latest"
+    session_timeout: "30s"
+    heartbeat_interval: "3s"
+
+batch_writer:
+  batch_size: 1000
+  batch_timeout: "60s"
+  max_retries: 3
+  retry_interval: "5s"
+
 proxy:
   enabled: true
   type: "socks5"

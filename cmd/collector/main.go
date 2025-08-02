@@ -13,8 +13,12 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"data4trend/pkg/api"
+	"data4trend/pkg/backfill"
+	"data4trend/pkg/batchwriter"
 	"data4trend/pkg/binance"
 	"data4trend/pkg/config"
+	"data4trend/pkg/integrity"
+	"data4trend/pkg/kafka"
 	"data4trend/pkg/monitoring"
 	"data4trend/pkg/storage"
 	"data4trend/pkg/validation"
@@ -86,15 +90,50 @@ func main() {
 	defer storage.Close()
 	logger.Info("ClickHouse storage initialized successfully")
 
+	// Initialize Kafka producer
+	logger.Info("Initializing Kafka producer...")
+	kafkaProducer, err := kafka.NewProducer(cfg, logger)
+	if err != nil {
+		logger.Fatalf("Failed to initialize Kafka producer: %v", err)
+	}
+	defer kafkaProducer.Close()
+
+	// Initialize batch writer
+	logger.Info("Initializing batch writer...")
+	batchWriter, err := batchwriter.NewBatchWriter(cfg, storage, logger)
+	if err != nil {
+		logger.Fatalf("Failed to initialize batch writer: %v", err)
+	}
+	batchWriter.Start()
+
+	// Initialize batch message handler
+	batchHandler := batchwriter.NewBatchMessageHandler(batchWriter, logger)
+
+	// Initialize Kafka consumer
+	logger.Info("Initializing Kafka consumer...")
+	kafkaConsumer, err := kafka.NewConsumer(cfg, logger, batchHandler)
+	if err != nil {
+		logger.Fatalf("Failed to initialize Kafka consumer: %v", err)
+	}
+
 	// Initialize WebSocket client
 	logger.Info("Initializing WebSocket client...")
-	websocketClient := websocket.NewClient(cfg, storage, logger)
+	websocketClient := websocket.NewClient(cfg, kafkaProducer, logger)
 
 	// Initialize monitoring
 	logger.Info("Initializing monitoring system...")
 	monitor := monitoring.NewMonitor(storage, websocketClient, logger)
 	monitor.LogSystemInfo()
 	monitor.Start()
+
+	// Initialize backfill service
+	logger.Info("Initializing backfill service...")
+	backfillService := backfill.NewBackfillService(cfg, storage, logger)
+
+	// Initialize data integrity service
+	logger.Info("Initializing data integrity service...")
+	integrityService := integrity.NewDataIntegrityService(cfg, storage, backfillService, logger)
+	integrityService.Start()
 
 	// Initialize data validation
 	logger.Info("Initializing data validation system...")
@@ -103,7 +142,7 @@ func main() {
 
 	// Initialize API server
 	logger.Info("Initializing API server...")
-	apiServer := api.NewServer(cfg, storage, websocketClient, validator, logger)
+	apiServer := api.NewServer(cfg, storage, websocketClient, integrityService, validator, logger)
 
 	// Setup graceful shutdown
 	_, cancel := context.WithCancel(context.Background())
@@ -116,21 +155,34 @@ func main() {
 	// Start services
 	var wg sync.WaitGroup
 
+	// Start API server first
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := apiServer.Start(); err != nil {
+			logger.Errorf("API server error: %v", err)
+		}
+	}()
+
+	// Give API server time to start
+	time.Sleep(2 * time.Second)
+	logger.Info("API server started on http://localhost:8080")
+
+	// Start Kafka consumer
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := kafkaConsumer.Start(); err != nil {
+			logger.Errorf("Kafka consumer error: %v", err)
+		}
+	}()
+
 	// Start WebSocket client
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		if err := websocketClient.Start(); err != nil {
 			logger.Errorf("WebSocket client error: %v", err)
-		}
-	}()
-
-	// Start API server
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if err := apiServer.Start(); err != nil {
-			logger.Errorf("API server error: %v", err)
 		}
 	}()
 
@@ -146,11 +198,24 @@ func main() {
 	cancel()
 
 	// Stop services
-	logger.Info("Stopping data validation...")
-	validator.Stop()
-	
 	logger.Info("Stopping WebSocket client...")
 	websocketClient.Stop()
+	
+	logger.Info("Stopping Kafka consumer...")
+	if err := kafkaConsumer.Stop(); err != nil {
+		logger.Errorf("Failed to stop Kafka consumer: %v", err)
+	}
+	
+	logger.Info("Stopping batch writer...")
+	if err := batchWriter.Stop(); err != nil {
+		logger.Errorf("Failed to stop batch writer: %v", err)
+	}
+	
+	logger.Info("Stopping data integrity service...")
+	integrityService.Stop()
+	
+	logger.Info("Stopping data validation...")
+	validator.Stop()
 
 	// Wait for services to stop (with timeout)
 	done := make(chan struct{})

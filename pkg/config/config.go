@@ -12,12 +12,14 @@ import (
 
 // Config represents the application configuration
 type Config struct {
-	WebSocket WebSocketConfig `yaml:"websocket"`
-	Database  DatabaseConfig  `yaml:"database"`
-	API       APIConfig       `yaml:"api"`
-	Proxy     ProxyConfig     `yaml:"proxy"`
-	Symbols   []string        `yaml:"symbols,omitempty"`
-	Interval  string          `yaml:"interval"`
+	WebSocket    WebSocketConfig    `yaml:"websocket"`
+	Database     DatabaseConfig     `yaml:"database"`
+	API          APIConfig          `yaml:"api"`
+	Kafka        KafkaConfig        `yaml:"kafka"`
+	BatchWriter  BatchWriterConfig  `yaml:"batch_writer"`
+	Proxy        ProxyConfig        `yaml:"proxy"`
+	Symbols      []string           `yaml:"symbols,omitempty"`
+	Interval     string             `yaml:"interval"`
 }
 
 // WebSocketConfig represents WebSocket configuration
@@ -59,6 +61,38 @@ type ProxyConfig struct {
 	Type    string `yaml:"type"` // http, socks5
 	Host    string `yaml:"host"`
 	Port    int    `yaml:"port"`
+}
+
+// KafkaConfig represents Kafka configuration
+type KafkaConfig struct {
+	Brokers  []string           `yaml:"brokers"`
+	Topic    string             `yaml:"topic"`
+	Producer KafkaProducerConfig `yaml:"producer"`
+	Consumer KafkaConsumerConfig `yaml:"consumer"`
+}
+
+// KafkaProducerConfig represents Kafka producer configuration
+type KafkaProducerConfig struct {
+	BatchSize       int    `yaml:"batch_size"`
+	BatchTimeout    string `yaml:"batch_timeout"`
+	Compression     string `yaml:"compression"`
+	MaxMessageBytes int    `yaml:"max_message_bytes"`
+}
+
+// KafkaConsumerConfig represents Kafka consumer configuration
+type KafkaConsumerConfig struct {
+	GroupID           string `yaml:"group_id"`
+	AutoOffsetReset   string `yaml:"auto_offset_reset"`
+	SessionTimeout    string `yaml:"session_timeout"`
+	HeartbeatInterval string `yaml:"heartbeat_interval"`
+}
+
+// BatchWriterConfig represents batch writer configuration
+type BatchWriterConfig struct {
+	BatchSize     int    `yaml:"batch_size"`
+	BatchTimeout  string `yaml:"batch_timeout"`
+	MaxRetries    int    `yaml:"max_retries"`
+	RetryInterval string `yaml:"retry_interval"`
 }
 
 // LoadConfig loads configuration from file and environment variables

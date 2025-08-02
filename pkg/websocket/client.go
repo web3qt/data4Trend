@@ -15,19 +15,19 @@ import (
 
 	"data4trend/internal/types"
 	"data4trend/pkg/config"
-	"data4trend/pkg/storage"
+	"data4trend/pkg/kafka"
 )
 
 // Client represents a WebSocket client for Binance streams
 type Client struct {
-	config    *config.Config
-	storage   *storage.ClickHouseStorage
-	logger    *logrus.Logger
+	config      *config.Config
+	kafkaProducer *kafka.Producer
+	logger      *logrus.Logger
 	connections map[string]*websocket.Conn
-	mutex     sync.RWMutex
-	ctx       context.Context
-	cancel    context.CancelFunc
-	stats     *Stats
+	mutex       sync.RWMutex
+	ctx         context.Context
+	cancel      context.CancelFunc
+	stats       *Stats
 }
 
 // Stats represents WebSocket client statistics
@@ -40,15 +40,15 @@ type Stats struct {
 }
 
 // NewClient creates a new WebSocket client
-func NewClient(cfg *config.Config, storage *storage.ClickHouseStorage, logger *logrus.Logger) *Client {
+func NewClient(cfg *config.Config, kafkaProducer *kafka.Producer, logger *logrus.Logger) *Client {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Client{
-		config:      cfg,
-		storage:     storage,
-		logger:      logger,
-		connections: make(map[string]*websocket.Conn),
-		ctx:         ctx,
-		cancel:      cancel,
+		config:        cfg,
+		kafkaProducer: kafkaProducer,
+		logger:        logger,
+		connections:   make(map[string]*websocket.Conn),
+		ctx:           ctx,
+		cancel:        cancel,
 		stats: &Stats{
 			Connections:     0,
 			MessagesTotal:   0,
@@ -213,13 +213,13 @@ func (c *Client) processMessage(message []byte, symbol string) error {
 		CreatedAt: time.Now(),
 	}
 
-	// Store in database
-	if err := c.storage.InsertKlineData(klineData); err != nil {
-		return fmt.Errorf("failed to store kline data: %w", err)
+	// Send to Kafka
+	if err := c.kafkaProducer.SendKlineData(klineData); err != nil {
+		return fmt.Errorf("failed to send kline data to kafka: %w", err)
 	}
 
 	c.incrementMessages()
-	c.logger.Debugf("Stored kline data for %s: %s", klineData.Symbol, klineData.Close)
+	c.logger.Debugf("Sent kline data for %s: %s", klineData.Symbol, klineData.Close)
 
 	return nil
 }

@@ -11,6 +11,7 @@ import (
 
 	"data4trend/pkg/backfill"
 	"data4trend/pkg/config"
+	"data4trend/pkg/integrity"
 	"data4trend/pkg/storage"
 	"data4trend/pkg/validation"
 	"data4trend/pkg/websocket"
@@ -22,13 +23,14 @@ type Server struct {
 	storage   *storage.ClickHouseStorage
 	websocket *websocket.Client
 	backfill  *backfill.BackfillService
+	integrity *integrity.DataIntegrityService
 	validator *validation.DataValidator
 	logger    *logrus.Logger
 	router    *gin.Engine
 }
 
 // NewServer creates a new API server
-func NewServer(cfg *config.Config, storage *storage.ClickHouseStorage, ws *websocket.Client, validator *validation.DataValidator, logger *logrus.Logger) *Server {
+func NewServer(cfg *config.Config, storage *storage.ClickHouseStorage, ws *websocket.Client, integrity *integrity.DataIntegrityService, validator *validation.DataValidator, logger *logrus.Logger) *Server {
 	// Set gin mode
 	gin.SetMode(gin.ReleaseMode)
 
@@ -45,6 +47,7 @@ func NewServer(cfg *config.Config, storage *storage.ClickHouseStorage, ws *webso
 		storage:   storage,
 		websocket: ws,
 		backfill:  backfillService,
+		integrity: integrity,
 		validator: validator,
 		logger:    logger,
 		router:    router,
@@ -77,6 +80,11 @@ func (s *Server) setupRoutes() {
 		v1.POST("/validation/run", s.runValidation)
 		v1.GET("/validation/gaps", s.getDataGaps)
 		v1.GET("/validation/quality", s.getDataQuality)
+		
+		// Data integrity routes
+		v1.GET("/integrity/status", s.getIntegrityStatus)
+		v1.POST("/integrity/check", s.forceIntegrityCheck)
+		v1.POST("/integrity/backfill/:symbol", s.backfillSymbolRange)
 	}
 
 	// Static files (if needed)
@@ -258,6 +266,107 @@ func (s *Server) getDataQuality(c *gin.Context) {
 			"issues_count": len(result.Issues),
 			"gaps_count":   len(result.DataGaps),
 		},
+	})
+}
+
+// getIntegrityStatus returns the current data integrity status
+func (s *Server) getIntegrityStatus(c *gin.Context) {
+	stats := s.integrity.GetStats()
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   stats,
+	})
+}
+
+// forceIntegrityCheck triggers a manual integrity check
+func (s *Server) forceIntegrityCheck(c *gin.Context) {
+	s.logger.Info("Manual integrity check triggered via API")
+	s.integrity.ForceIntegrityCheck()
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "Integrity check triggered",
+	})
+}
+
+// backfillSymbolRange handles manual backfill requests for specific symbol and time range
+func (s *Server) backfillSymbolRange(c *gin.Context) {
+	symbol := c.Param("symbol")
+	if symbol == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status": "error",
+			"error":  "Symbol parameter is required",
+		})
+		return
+	}
+	
+	// Parse query parameters for time range
+	startTimeStr := c.Query("start_time")
+	endTimeStr := c.Query("end_time")
+	
+	if startTimeStr == "" || endTimeStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status": "error",
+			"error":  "start_time and end_time query parameters are required (format: 2006-01-02T15:04:05Z)",
+		})
+		return
+	}
+	
+	startTime, err := time.Parse(time.RFC3339, startTimeStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status": "error",
+			"error":  fmt.Sprintf("Invalid start_time format: %v", err),
+		})
+		return
+	}
+	
+	endTime, err := time.Parse(time.RFC3339, endTimeStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status": "error",
+			"error":  fmt.Sprintf("Invalid end_time format: %v", err),
+		})
+		return
+	}
+	
+	// Validate time range
+	if endTime.Before(startTime) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status": "error",
+			"error":  "end_time must be after start_time",
+		})
+		return
+	}
+	
+	// Limit time range to prevent abuse
+	maxDuration := 7 * 24 * time.Hour // 7 days
+	if endTime.Sub(startTime) > maxDuration {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status": "error",
+			"error":  "Time range cannot exceed 7 days",
+		})
+		return
+	}
+	
+	s.logger.Infof("Manual backfill requested for %s from %s to %s", symbol, startTime, endTime)
+	
+	// Perform backfill
+	err = s.integrity.BackfillSymbolRange(symbol, startTime, endTime)
+	if err != nil {
+		s.logger.Errorf("Failed to backfill symbol %s: %v", symbol, err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status": "error",
+			"error":  err.Error(),
+		})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": fmt.Sprintf("Backfill completed for %s", symbol),
+		"symbol":  symbol,
+		"start_time": startTime,
+		"end_time":   endTime,
 	})
 }
 
