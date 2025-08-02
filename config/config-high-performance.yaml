@@ -1,0 +1,79 @@
+# 高性能优化配置文件
+# 专门用于处理大量数据流的场景
+database:
+  host: "localhost"
+  port: 8123
+  database: "data4trend"
+  username: "default"
+  password: "123456"
+  table: "klines_1m"
+
+websocket:
+  base_url: "wss://stream.binance.com:9443"
+  reconnect_interval: 15  # 减少重连间隔
+  ping_interval: 20       # 减少ping间隔
+  max_retries: 10
+  timeout: 30
+  # 启用自动获取所有USDT交易对 (400+个)
+  auto_fetch_symbols: true
+  symbol_filter:
+    quote_asset: USDT
+    exclude_patterns:
+      - UP
+      - DOWN
+      - BEAR
+      - BULL
+
+api:
+  host: "0.0.0.0"
+  port: 8080
+
+kafka:
+  brokers:
+    - "localhost:9092"
+  topic: "binance_klines"
+  producer:
+    batch_size: 500               # 增加批量大小
+    batch_timeout: "500ms"        # 减少批量超时
+    compression: "snappy"         # 使用压缩减少网络传输
+    max_message_bytes: 2000000    # 增加最大消息大小
+    channel_buffer_size: 8192     # 增加通道缓冲区
+    flush_bytes: 65536            # 64KB批量刷新
+    send_timeout: "3s"            # 减少发送超时
+  consumer:
+    group_id: "data4trend_consumer"
+    auto_offset_reset: "latest"
+    session_timeout: "30s"
+    heartbeat_interval: "3s"
+
+# 高频批量写入配置
+batch_writer:
+  batch_size: 200        # 适中的批量大小，快速触发
+  batch_timeout: "5s"    # 5秒超时，确保数据及时写入
+  max_retries: 5         # 增加重试次数
+  retry_interval: "2s"   # 减少重试间隔
+
+# 数据校验与回补服务配置
+validator:
+  enabled: true
+  check_interval: "3m"        # 更频繁的检查
+  max_gap_duration: "24h"
+  history_days: 7
+  batch_size: 200             # 增加批量处理大小
+  concurrent_workers: 5       # 增加并发工作线程
+
+proxy:
+  enabled: false
+  type: "socks5"
+  host: "127.0.0.1"
+  port: 7890
+
+interval: "1m"
+
+# 预期性能指标（优化后）:
+# - 监控交易对: 400+ 个
+# - 每分钟数据量: 400+ 条
+# - 批量写入频率: 每5-10秒一次
+# - 单次批量大小: 100-200 条
+# - 每小时数据量: 24,000+ 条
+# - 日数据量: 576,000+ 条

@@ -31,8 +31,8 @@ func NewClickHouseStorage(cfg *config.Config, logger *logrus.Logger) (*ClickHous
 		},
 		Protocol:         clickhouse.HTTP,
 		DialTimeout:      time.Second * 30,
-		MaxOpenConns:     10,
-		MaxIdleConns:     5,
+		MaxOpenConns:     50,
+		MaxIdleConns:     20,
 		ConnMaxLifetime:  time.Hour,
 		ConnOpenStrategy: clickhouse.ConnOpenInOrder,
 	}
@@ -133,7 +133,10 @@ func (s *ClickHouseStorage) BatchInsertKlineData(dataList []*types.KlineData) er
 		return nil
 	}
 
+	startTime := time.Now()
 	ctx := context.Background()
+
+	s.logger.Debugf("Preparing batch insert for %d records...", len(dataList))
 
 	batch, err := s.conn.PrepareBatch(ctx, fmt.Sprintf(`
 		INSERT INTO %s.%s 
@@ -144,7 +147,8 @@ func (s *ClickHouseStorage) BatchInsertKlineData(dataList []*types.KlineData) er
 		return fmt.Errorf("failed to prepare batch: %w", err)
 	}
 
-	for _, data := range dataList {
+	// 批量添加数据
+	for i, data := range dataList {
 		err := batch.Append(
 			data.Symbol,
 			data.OpenTime,
@@ -157,15 +161,20 @@ func (s *ClickHouseStorage) BatchInsertKlineData(dataList []*types.KlineData) er
 			data.CreatedAt,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to append to batch: %w", err)
+			return fmt.Errorf("failed to append record %d/%d to batch: %w", i+1, len(dataList), err)
 		}
 	}
 
+	// 发送批量数据
 	if err := batch.Send(); err != nil {
+		duration := time.Since(startTime)
+		s.logger.Errorf("Failed to send batch of %d records after %v: %v", len(dataList), duration, err)
 		return fmt.Errorf("failed to send batch: %w", err)
 	}
 
-	s.logger.Infof("Successfully inserted %d kline records", len(dataList))
+	duration := time.Since(startTime)
+	s.logger.Infof("Successfully inserted %d kline records in %v (%.2f records/sec)", 
+		len(dataList), duration, float64(len(dataList))/duration.Seconds())
 	return nil
 }
 
@@ -240,7 +249,7 @@ func (s *ClickHouseStorage) GetKlineData(symbol string, limit int, startTime, en
 func (s *ClickHouseStorage) GetDuplicateRecords() (map[string]int, error) {
 	ctx := context.Background()
 	result := make(map[string]int)
-	
+
 	query := fmt.Sprintf(`
 		SELECT 
 			symbol,
@@ -257,13 +266,13 @@ func (s *ClickHouseStorage) GetDuplicateRecords() (map[string]int, error) {
 		) duplicates
 		GROUP BY symbol
 	`, s.config.Database.Database, s.config.Database.Table)
-	
+
 	rows, err := s.conn.Query(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check duplicates: %w", err)
 	}
 	defer rows.Close()
-	
+
 	for rows.Next() {
 		var symbol string
 		var count int
@@ -272,7 +281,7 @@ func (s *ClickHouseStorage) GetDuplicateRecords() (map[string]int, error) {
 		}
 		result[symbol] = count
 	}
-	
+
 	return result, nil
 }
 
@@ -280,7 +289,7 @@ func (s *ClickHouseStorage) GetDuplicateRecords() (map[string]int, error) {
 func (s *ClickHouseStorage) GetStaleDataSymbols() (map[string]time.Duration, error) {
 	ctx := context.Background()
 	result := make(map[string]time.Duration)
-	
+
 	query := fmt.Sprintf(`
 		SELECT 
 			symbol,
@@ -290,13 +299,13 @@ func (s *ClickHouseStorage) GetStaleDataSymbols() (map[string]time.Duration, err
 		GROUP BY symbol
 		HAVING delay_seconds > 300
 	`, s.config.Database.Database, s.config.Database.Table)
-	
+
 	rows, err := s.conn.Query(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check stale data: %w", err)
 	}
 	defer rows.Close()
-	
+
 	for rows.Next() {
 		var symbol string
 		var lastUpdate time.Time
@@ -306,7 +315,7 @@ func (s *ClickHouseStorage) GetStaleDataSymbols() (map[string]time.Duration, err
 		}
 		result[symbol] = time.Duration(delaySeconds) * time.Second
 	}
-	
+
 	return result, nil
 }
 
@@ -314,7 +323,7 @@ func (s *ClickHouseStorage) GetStaleDataSymbols() (map[string]time.Duration, err
 func (s *ClickHouseStorage) GetAnomalousData() ([]map[string]interface{}, error) {
 	ctx := context.Background()
 	result := []map[string]interface{}{}
-	
+
 	// 检查极端价格变动（1分钟内变化>50%）
 	query := fmt.Sprintf(`
 		SELECT 
@@ -329,13 +338,13 @@ func (s *ClickHouseStorage) GetAnomalousData() ([]map[string]interface{}, error)
 		ORDER BY abs(price_change_pct) DESC
 		LIMIT 100
 	`, s.config.Database.Database, s.config.Database.Table)
-	
+
 	rows, err := s.conn.Query(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check anomalous data: %w", err)
 	}
 	defer rows.Close()
-	
+
 	for rows.Next() {
 		var symbol string
 		var openTime int64
@@ -343,7 +352,7 @@ func (s *ClickHouseStorage) GetAnomalousData() ([]map[string]interface{}, error)
 		if err := rows.Scan(&symbol, &openTime, &openPrice, &closePrice, &priceChangePct); err != nil {
 			continue
 		}
-		
+
 		result = append(result, map[string]interface{}{
 			"symbol":           symbol,
 			"timestamp":        time.Unix(openTime/1000, 0),
@@ -353,14 +362,14 @@ func (s *ClickHouseStorage) GetAnomalousData() ([]map[string]interface{}, error)
 			"description":      fmt.Sprintf("Extreme price movement: %.2f%%", priceChangePct),
 		})
 	}
-	
+
 	return result, nil
 }
 
 // StoreValidationResult 将验证结果存储到数据库
 func (s *ClickHouseStorage) StoreValidationResult(timestamp time.Time, overallStatus string, totalSymbols, healthySymbols int, completenessScore, accuracyScore, consistencyScore, timelinessScore, overallScore float64, issuesCount int) error {
 	ctx := context.Background()
-	
+
 	query := fmt.Sprintf(`
 		INSERT INTO %s.data_quality_metrics (
 			timestamp, overall_status, total_symbols, healthy_symbols,
@@ -368,14 +377,14 @@ func (s *ClickHouseStorage) StoreValidationResult(timestamp time.Time, overallSt
 			timeliness_score, overall_score, issues_count
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, s.config.Database.Database)
-	
+
 	err := s.conn.Exec(ctx, query, timestamp, overallStatus, totalSymbols, healthySymbols,
 		completenessScore, accuracyScore, consistencyScore, timelinessScore, overallScore, issuesCount)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to store validation result: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -460,7 +469,7 @@ func (s *ClickHouseStorage) DetectDataGaps(symbol string, startTime, endTime tim
 		LEFT JOIN actual_data ON time_series.expected_time = actual_data.actual_time
 		WHERE actual_data.actual_time IS NULL
 		ORDER BY expected_time
-	`, 
+	`,
 		startTime.Format("2006-01-02 15:04:05"),
 		startTime.Format("2006-01-02 15:04:05"),
 		endTime.Format("2006-01-02 15:04:05"),
@@ -531,9 +540,9 @@ func (s *ClickHouseStorage) GetDataGapsForAllSymbols() (map[string][]*DataGap, e
 	result := make(map[string][]*DataGap)
 
 	// 获取所有交易对
-	symbolQuery := fmt.Sprintf("SELECT DISTINCT symbol FROM %s.%s WHERE created_at >= now() - INTERVAL 24 HOUR", 
+	symbolQuery := fmt.Sprintf("SELECT DISTINCT symbol FROM %s.%s WHERE created_at >= now() - INTERVAL 24 HOUR",
 		s.config.Database.Database, s.config.Database.Table)
-	
+
 	rows, err := s.conn.Query(ctx, symbolQuery)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get symbols: %w", err)
@@ -570,15 +579,15 @@ func (s *ClickHouseStorage) GetDataGapsForAllSymbols() (map[string][]*DataGap, e
 // GetAllSymbols 返回数据库中所有唯一的交易对
 func (s *ClickHouseStorage) GetAllSymbols() ([]string, error) {
 	ctx := context.Background()
-	query := fmt.Sprintf("SELECT DISTINCT symbol FROM %s.%s ORDER BY symbol", 
+	query := fmt.Sprintf("SELECT DISTINCT symbol FROM %s.%s ORDER BY symbol",
 		s.config.Database.Database, s.config.Database.Table)
-	
+
 	rows, err := s.conn.Query(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query symbols: %w", err)
 	}
 	defer rows.Close()
-	
+
 	var symbols []string
 	for rows.Next() {
 		var symbol string
@@ -587,6 +596,6 @@ func (s *ClickHouseStorage) GetAllSymbols() ([]string, error) {
 		}
 		symbols = append(symbols, symbol)
 	}
-	
+
 	return symbols, nil
 }

@@ -84,18 +84,20 @@ func (bw *BatchWriter) AddKlineData(klineData *types.KlineData) error {
 	bw.batch = append(bw.batch, klineData)
 	bw.updateCurrentBatchSize(len(bw.batch))
 
-	bw.logger.Debugf("Added kline data to batch: %s (batch size: %d/%d)", 
-		klineData.Symbol, len(bw.batch), bw.batchSize)
-
 	// Start timer if this is the first item
 	if len(bw.batch) == 1 {
 		bw.timer.Reset(bw.timeout)
+		bw.logger.Debugf("Started batch timer for %s (timeout: %v)", klineData.Symbol, bw.timeout)
 	}
 
 	// Check if batch is full
 	if len(bw.batch) >= bw.batchSize {
+		bw.logger.Debugf("Batch full (%d/%d), flushing immediately", len(bw.batch), bw.batchSize)
 		return bw.flushBatch()
 	}
+
+	bw.logger.Debugf("Added kline data to batch: %s (batch size: %d/%d)", 
+		klineData.Symbol, len(bw.batch), bw.batchSize)
 
 	return nil
 }
@@ -125,6 +127,7 @@ func (bw *BatchWriter) flushBatch() error {
 		return nil
 	}
 
+	startTime := time.Now()
 	batchToWrite := make([]*types.KlineData, len(bw.batch))
 	copy(batchToWrite, bw.batch)
 	batchSize := len(bw.batch)
@@ -134,31 +137,38 @@ func (bw *BatchWriter) flushBatch() error {
 	bw.updateCurrentBatchSize(0)
 	bw.timer.Stop()
 
+	bw.logger.Infof("Flushing batch of %d records to ClickHouse...", batchSize)
+
 	// Write to ClickHouse with retries
 	retryInterval, err := time.ParseDuration(bw.config.BatchWriter.RetryInterval)
 	if err != nil {
-		retryInterval = 5 * time.Second
+		retryInterval = 1 * time.Second
 	}
 
 	var lastErr error
 	for attempt := 0; attempt < bw.config.BatchWriter.MaxRetries; attempt++ {
 		if err := bw.storage.InsertKlineDataBatch(batchToWrite); err != nil {
 			lastErr = err
-			bw.logger.Warnf("Batch write attempt %d failed: %v", attempt+1, err)
+			bw.logger.Warnf("Batch write attempt %d/%d failed: %v", attempt+1, bw.config.BatchWriter.MaxRetries, err)
 			if attempt < bw.config.BatchWriter.MaxRetries-1 {
+				bw.logger.Debugf("Retrying in %v...", retryInterval)
 				time.Sleep(retryInterval)
 			}
 			continue
 		}
 
 		// Success
+		duration := time.Since(startTime)
 		bw.updateStats(int64(batchSize), true)
-		bw.logger.Infof("Successfully wrote batch of %d records to ClickHouse", batchSize)
+		bw.logger.Infof("Successfully wrote batch of %d records to ClickHouse in %v", batchSize, duration)
 		return nil
 	}
 
 	// All retries failed
+	duration := time.Since(startTime)
 	bw.updateStats(0, false)
+	bw.logger.Errorf("Failed to write batch of %d records after %d attempts in %v: %v", 
+		batchSize, bw.config.BatchWriter.MaxRetries, duration, lastErr)
 	return fmt.Errorf("failed to write batch after %d attempts: %w", bw.config.BatchWriter.MaxRetries, lastErr)
 }
 

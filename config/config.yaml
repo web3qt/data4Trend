@@ -33,13 +33,13 @@ kafka:
     - "localhost:9092"
   topic: "binance_klines"
   producer:
-    batch_size: 100
-    batch_timeout: "1s"
+    batch_size: 50           # 减少批量大小，更快触发
+    batch_timeout: "500ms"   # 大幅减少超时时间
     compression: "snappy"
     max_message_bytes: 1000000
-    channel_buffer_size: 2048    # 通道缓冲区大小，防止通道满
-    flush_bytes: 16384           # 16KB批量刷新大小
-    send_timeout: "5s"           # 发送超时时间
+    channel_buffer_size: 4096    # 增加通道缓冲区大小
+    flush_bytes: 8192            # 减少批量刷新大小
+    send_timeout: "2s"           # 减少发送超时时间
   consumer:
     group_id: "data4trend_consumer"
     auto_offset_reset: "latest"
@@ -47,10 +47,10 @@ kafka:
     heartbeat_interval: "3s"
 
 batch_writer:
-  batch_size: 1000
-  batch_timeout: "60s"
+  batch_size: 50           # 减少批量大小，更快触发写入
+  batch_timeout: "2s"      # 大幅减少超时时间
   max_retries: 3
-  retry_interval: "5s"
+  retry_interval: "1s"     # 减少重试间隔
 
 # 数据校验与回补服务配置
 validator:
@@ -68,3 +68,16 @@ proxy:
   port: 7890
 
 interval: "1m"
+
+# 手动配置的交易对列表（当auto_fetch_symbols为false时使用）
+symbols:
+  - "BTCUSDT"
+  - "ETHUSDT"
+  - "BNBUSDT"
+  - "ADAUSDT"
+  - "SOLUSDT"
+  - "XRPUSDT"
+  - "DOTUSDT"
+  - "DOGEUSDT"
+  - "AVAXUSDT"
+  - "MATICUSDT"
