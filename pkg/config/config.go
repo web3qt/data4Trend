@@ -12,15 +12,16 @@ import (
 
 // Config 代表应用程序配置
 type Config struct {
-	WebSocket    WebSocketConfig    `yaml:"websocket"`
-	Database     DatabaseConfig     `yaml:"database"`
-	API          APIConfig          `yaml:"api"`
-	Kafka        KafkaConfig        `yaml:"kafka"`
-	BatchWriter  BatchWriterConfig  `yaml:"batch_writer"`
-	Validator    ValidatorConfig    `yaml:"validator"`
-	Proxy        ProxyConfig        `yaml:"proxy"`
-	Symbols      []string           `yaml:"symbols,omitempty"`
-	Interval     string             `yaml:"interval"`
+	WebSocket   WebSocketConfig   `yaml:"websocket"`
+	Database    DatabaseConfig    `yaml:"database"`
+	API         APIConfig         `yaml:"api"`
+	Kafka       KafkaConfig       `yaml:"kafka"`
+	BatchWriter BatchWriterConfig `yaml:"batch_writer"`
+	Validator   ValidatorConfig   `yaml:"validator"`
+	Backfill    BackfillConfig    `yaml:"backfill"`
+	Proxy       ProxyConfig       `yaml:"proxy"`
+	Symbols     []string          `yaml:"symbols,omitempty"`
+	Interval    string            `yaml:"interval"`
 }
 
 // WebSocketConfig 代表WebSocket配置
@@ -36,8 +37,8 @@ type WebSocketConfig struct {
 
 // SymbolFilter 代表交易对过滤配置
 type SymbolFilter struct {
-	QuoteAsset       string   `yaml:"quote_asset"`
-	ExcludePatterns  []string `yaml:"exclude_patterns"`
+	QuoteAsset      string   `yaml:"quote_asset"`
+	ExcludePatterns []string `yaml:"exclude_patterns"`
 }
 
 // DatabaseConfig 代表数据库配置
@@ -66,21 +67,21 @@ type ProxyConfig struct {
 
 // KafkaConfig 代表Kafka配置
 type KafkaConfig struct {
-	Brokers  []string           `yaml:"brokers"`
-	Topic    string             `yaml:"topic"`
+	Brokers  []string            `yaml:"brokers"`
+	Topic    string              `yaml:"topic"`
 	Producer KafkaProducerConfig `yaml:"producer"`
 	Consumer KafkaConsumerConfig `yaml:"consumer"`
 }
 
 // KafkaProducerConfig 代表Kafka生产者配置
 type KafkaProducerConfig struct {
-	BatchSize       int    `yaml:"batch_size"`
-	BatchTimeout    string `yaml:"batch_timeout"`
-	Compression     string `yaml:"compression"`
-	MaxMessageBytes int    `yaml:"max_message_bytes"`
-	ChannelBufferSize int  `yaml:"channel_buffer_size"`  // 通道缓冲区大小
-	FlushBytes      int    `yaml:"flush_bytes"`          // 刷新字节数
-	SendTimeout     string `yaml:"send_timeout"`         // 发送超时时间
+	BatchSize         int    `yaml:"batch_size"`
+	BatchTimeout      string `yaml:"batch_timeout"`
+	Compression       string `yaml:"compression"`
+	MaxMessageBytes   int    `yaml:"max_message_bytes"`
+	ChannelBufferSize int    `yaml:"channel_buffer_size"` // 通道缓冲区大小
+	FlushBytes        int    `yaml:"flush_bytes"`         // 刷新字节数
+	SendTimeout       string `yaml:"send_timeout"`        // 发送超时时间
 }
 
 // KafkaConsumerConfig 代表Kafka消费者配置
@@ -107,6 +108,21 @@ type ValidatorConfig struct {
 	HistoryDays       int    `yaml:"history_days"`
 	BatchSize         int    `yaml:"batch_size"`
 	ConcurrentWorkers int    `yaml:"concurrent_workers"`
+	AutoBackfill      bool   `yaml:"auto_backfill"`
+	BackfillThreshold string `yaml:"backfill_threshold"`
+	IntegrationMode   string `yaml:"integration_mode"`
+}
+
+// BackfillConfig 代表数据回填配置
+type BackfillConfig struct {
+	Enabled              bool   `yaml:"enabled"`
+	DaysToBackfill       int    `yaml:"days_to_backfill"`
+	BatchSize            int    `yaml:"batch_size"`
+	RequestInterval      string `yaml:"request_interval"`
+	SymbolInterval       string `yaml:"symbol_interval"`
+	MaxConcurrentSymbols int    `yaml:"max_concurrent_symbols"`
+	RetryAttempts        int    `yaml:"retry_attempts"`
+	RetryDelay           string `yaml:"retry_delay"`
 }
 
 // LoadConfig 从文件和环境变量加载配置

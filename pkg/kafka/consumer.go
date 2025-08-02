@@ -46,6 +46,15 @@ func NewConsumer(cfg *config.Config, logger *logrus.Logger, handler MessageHandl
 	config.Consumer.Group.Rebalance.Strategy = sarama.BalanceStrategyRoundRobin
 	config.Consumer.Offsets.Initial = sarama.OffsetNewest
 
+	// 添加调试日志
+	logger.Infof("Kafka consumer brokers: %v", cfg.Kafka.Brokers)
+	logger.Infof("Kafka consumer group ID: %s", cfg.Kafka.Consumer.GroupID)
+	
+	// 打印每个broker地址
+	for i, broker := range cfg.Kafka.Brokers {
+		logger.Infof("Broker %d: %s", i, broker)
+	}
+
 	// 解析会话超时时间
 	sessionTimeout, err := time.ParseDuration(cfg.Kafka.Consumer.SessionTimeout)
 	if err != nil {

@@ -13,9 +13,17 @@ import (
 	"data4trend/pkg/config"
 	"data4trend/pkg/integrity"
 	"data4trend/pkg/storage"
-	"data4trend/pkg/validation"
 	"data4trend/pkg/websocket"
 )
+
+// ValidatorInterface 定义验证器接口
+type ValidatorInterface interface {
+	IsRunning() bool
+	ForceValidation() error
+	GetStats() interface{}
+	ValidateDataRange(startTime, endTime time.Time) ([]*backfill.GapInfo, error)
+	ValidateSymbol(symbol string, startTime, endTime time.Time) ([]*backfill.GapInfo, error)
+}
 
 // Server 代表API服务器
 type Server struct {
@@ -24,13 +32,13 @@ type Server struct {
 	websocket *websocket.Client
 	backfill  *backfill.BackfillService
 	integrity *integrity.DataIntegrityService
-	validator *validation.DataValidator
+	validator ValidatorInterface
 	logger    *logrus.Logger
 	router    *gin.Engine
 }
 
 // NewServer 创建新的API服务器
-func NewServer(cfg *config.Config, storage *storage.ClickHouseStorage, ws *websocket.Client, integrity *integrity.DataIntegrityService, validator *validation.DataValidator, logger *logrus.Logger) *Server {
+func NewServer(cfg *config.Config, storage *storage.ClickHouseStorage, ws *websocket.Client, integrity *integrity.DataIntegrityService, validator ValidatorInterface, logger *logrus.Logger) *Server {
 	// 设置gin模式
 	gin.SetMode(gin.ReleaseMode)
 
@@ -69,18 +77,21 @@ func (s *Server) setupRoutes() {
 		v1.GET("/stats", s.getStats)
 		v1.GET("/websocket/stats", s.getWebSocketStats)
 		v1.GET("/symbols", s.getSymbols)
-		
+
 		// Backfill routes
 		v1.GET("/backfill/status", s.getBackfillStatus)
+		v1.GET("/backfill/progress", s.getBackfillProgress)
 		v1.POST("/backfill/symbol/:symbol", s.backfillSymbol)
+		v1.POST("/backfill/symbol/:symbol/complete", s.backfillSymbolComplete)
 		v1.POST("/backfill/all", s.backfillAll)
-		
+		v1.POST("/backfill/all/complete", s.backfillAllComplete)
+
 		// Data validation routes
 		v1.GET("/validation/status", s.getValidationStatus)
 		v1.POST("/validation/run", s.runValidation)
 		v1.GET("/validation/gaps", s.getDataGaps)
 		v1.GET("/validation/quality", s.getDataQuality)
-		
+
 		// Data integrity routes
 		v1.GET("/integrity/status", s.getIntegrityStatus)
 		v1.POST("/integrity/check", s.forceIntegrityCheck)
@@ -203,9 +214,9 @@ func (s *Server) Start() error {
 // corsMiddleware handles CORS
 func corsMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-	c.Header("Access-Control-Allow-Origin", "*")
-	c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-	c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
@@ -218,7 +229,7 @@ func corsMiddleware() gin.HandlerFunc {
 
 // getValidationStatus returns the current validation status
 func (s *Server) getValidationStatus(c *gin.Context) {
-	result := s.validator.GetLastValidationResult()
+	result := s.validator.IsRunning()
 	c.JSON(http.StatusOK, gin.H{
 		"status": "success",
 		"data":   result,
@@ -228,11 +239,18 @@ func (s *Server) getValidationStatus(c *gin.Context) {
 // runValidation triggers a manual validation check
 func (s *Server) runValidation(c *gin.Context) {
 	s.logger.Info("Manual validation triggered via API")
-	result := s.validator.RunManualValidation()
+	err := s.validator.ForceValidation()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "error",
+			"message": "Validation failed",
+			"error":   err.Error(),
+		})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
 		"message": "Validation completed",
-		"data":    result,
 	})
 }
 
@@ -247,7 +265,7 @@ func (s *Server) getDataGaps(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{
 		"status": "success",
 		"data":   gaps,
@@ -256,15 +274,11 @@ func (s *Server) getDataGaps(c *gin.Context) {
 
 // getDataQuality returns data quality metrics
 func (s *Server) getDataQuality(c *gin.Context) {
-	result := s.validator.GetLastValidationResult()
+	result := s.validator.IsRunning()
 	c.JSON(http.StatusOK, gin.H{
 		"status": "success",
 		"data": gin.H{
-			"timestamp":    result.Timestamp,
-			"overall_score": result.DataQuality.OverallScore,
-			"metrics":      result.DataQuality,
-			"issues_count": len(result.Issues),
-			"gaps_count":   len(result.DataGaps),
+			"is_running": result,
 		},
 	})
 }
@@ -298,11 +312,11 @@ func (s *Server) backfillSymbolRange(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	// Parse query parameters for time range
 	startTimeStr := c.Query("start_time")
 	endTimeStr := c.Query("end_time")
-	
+
 	if startTimeStr == "" || endTimeStr == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status": "error",
@@ -310,7 +324,7 @@ func (s *Server) backfillSymbolRange(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	startTime, err := time.Parse(time.RFC3339, startTimeStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -319,7 +333,7 @@ func (s *Server) backfillSymbolRange(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	endTime, err := time.Parse(time.RFC3339, endTimeStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -328,7 +342,7 @@ func (s *Server) backfillSymbolRange(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	// Validate time range
 	if endTime.Before(startTime) {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -337,7 +351,7 @@ func (s *Server) backfillSymbolRange(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	// Limit time range to prevent abuse
 	maxDuration := 7 * 24 * time.Hour // 7 days
 	if endTime.Sub(startTime) > maxDuration {
@@ -347,9 +361,9 @@ func (s *Server) backfillSymbolRange(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	s.logger.Infof("Manual backfill requested for %s from %s to %s", symbol, startTime, endTime)
-	
+
 	// Perform backfill
 	err = s.integrity.BackfillSymbolRange(symbol, startTime, endTime)
 	if err != nil {
@@ -360,11 +374,11 @@ func (s *Server) backfillSymbolRange(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{
-		"status":  "success",
-		"message": fmt.Sprintf("Backfill completed for %s", symbol),
-		"symbol":  symbol,
+		"status":     "success",
+		"message":    fmt.Sprintf("Backfill completed for %s", symbol),
+		"symbol":     symbol,
 		"start_time": startTime,
 		"end_time":   endTime,
 	})
@@ -389,11 +403,11 @@ func loggingMiddleware(logger *logrus.Logger) gin.HandlerFunc {
 		}
 
 		logger.WithFields(logrus.Fields{
-			"status":     statusCode,
-			"latency":    latency,
-			"client_ip":  clientIP,
-			"method":     method,
-			"path":       path,
+			"status":    statusCode,
+			"latency":   latency,
+			"client_ip": clientIP,
+			"method":    method,
+			"path":      path,
 		}).Info("HTTP Request")
 	}
 }
@@ -403,7 +417,7 @@ func (s *Server) getBackfillStatus(c *gin.Context) {
 	status, err := s.backfill.GetBackfillStatus()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to get backfill status",
+			"error":   "Failed to get backfill status",
 			"details": err.Error(),
 		})
 		return
@@ -429,6 +443,23 @@ func (s *Server) backfillSymbol(c *gin.Context) {
 	startTimeStr := c.Query("start_time")
 	endTimeStr := c.Query("end_time")
 
+	// 如果是POST请求，尝试从请求体解析参数
+	if c.Request.Method == "POST" {
+		var requestBody struct {
+			StartTime string `json:"start_time"`
+			EndTime   string `json:"end_time"`
+		}
+
+		if err := c.ShouldBindJSON(&requestBody); err == nil {
+			if requestBody.StartTime != "" {
+				startTimeStr = requestBody.StartTime
+			}
+			if requestBody.EndTime != "" {
+				endTimeStr = requestBody.EndTime
+			}
+		}
+	}
+
 	// Default to last 24 hours if not specified
 	endTime := time.Now()
 	startTime := endTime.Add(-24 * time.Hour)
@@ -445,37 +476,133 @@ func (s *Server) backfillSymbol(c *gin.Context) {
 		}
 	}
 
-	s.logger.Infof("Starting backfill for symbol %s from %s to %s", 
+	s.logger.Infof("🚀 [API] Starting range backfill for symbol %s from %s to %s",
 		symbol, startTime.Format("2006-01-02 15:04:05"), endTime.Format("2006-01-02 15:04:05"))
 
 	// Perform backfill
-	results, err := s.backfill.BackfillSymbol(symbol, startTime, endTime)
+	result, err := s.backfill.BackfillSymbolRange(symbol, startTime, endTime)
 	if err != nil {
+		s.logger.Errorf("❌ [API] Backfill failed for %s: %v", symbol, err)
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Backfill failed",
+			"error":   "Backfill failed",
 			"details": err.Error(),
 		})
 		return
 	}
 
+	s.logger.Infof("✅ [API] Backfill completed for %s", symbol)
 	c.JSON(http.StatusOK, gin.H{
-		"status": "success",
-		"symbol": symbol,
+		"status":     "success",
+		"symbol":     symbol,
 		"start_time": startTime,
-		"end_time": endTime,
-		"results": results,
+		"end_time":   endTime,
+		"result":     result,
 	})
 }
 
-// backfillAll handles backfill requests for all symbols
-func (s *Server) backfillAll(c *gin.Context) {
-	s.logger.Info("Starting backfill for all symbols")
+// backfillSymbolComplete handles complete backfill for a specific symbol (5 days)
+func (s *Server) backfillSymbolComplete(c *gin.Context) {
+	symbol := c.Param("symbol")
+	if symbol == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Symbol parameter is required",
+		})
+		return
+	}
 
-	// Perform backfill for all symbols
-	allResults, err := s.backfill.BackfillAllSymbols()
+	s.logger.Infof("🚀 [API] Starting complete backfill for symbol %s (5 days)", symbol)
+
+	// Perform complete backfill
+	result, err := s.backfill.BackfillSymbolComplete(symbol)
+	if err != nil {
+		s.logger.Errorf("❌ [API] Complete backfill failed for %s: %v", symbol, err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Complete backfill failed",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	s.logger.Infof("✅ [API] Complete backfill completed for %s", symbol)
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"symbol": symbol,
+		"result": result,
+	})
+}
+
+// backfillAll handles backfill requests for all symbols (range-based)
+func (s *Server) backfillAll(c *gin.Context) {
+	s.logger.Info("Starting range backfill for all symbols")
+
+	// Parse optional time range parameters
+	startTimeStr := c.Query("start_time")
+	endTimeStr := c.Query("end_time")
+
+	// Default to last 24 hours if not specified
+	endTime := time.Now()
+	startTime := endTime.Add(-24 * time.Hour)
+
+	if startTimeStr != "" {
+		if parsed, err := time.Parse("2006-01-02T15:04:05Z", startTimeStr); err == nil {
+			startTime = parsed
+		}
+	}
+
+	if endTimeStr != "" {
+		if parsed, err := time.Parse("2006-01-02T15:04:05Z", endTimeStr); err == nil {
+			endTime = parsed
+		}
+	}
+
+	// Get all symbols
+	symbols, err := s.storage.GetAllSymbols()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Backfill failed",
+			"error":   "Failed to get symbols",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// Perform backfill for each symbol
+	allResults := make(map[string]*backfill.BackfillResult)
+	totalSuccess := 0
+	totalFailed := 0
+
+	for _, symbol := range symbols {
+		result, err := s.backfill.BackfillSymbolRange(symbol, startTime, endTime)
+		if err != nil {
+			s.logger.Errorf("❌ [API] Backfill failed for %s: %v", symbol, err)
+			totalFailed++
+		} else {
+			totalSuccess++
+		}
+		allResults[symbol] = result
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"summary": gin.H{
+			"total_symbols":        len(symbols),
+			"successful_backfills": totalSuccess,
+			"failed_backfills":     totalFailed,
+			"start_time":           startTime,
+			"end_time":             endTime,
+		},
+		"results": allResults,
+	})
+}
+
+// backfillAllComplete handles complete backfill for all symbols (5 days)
+func (s *Server) backfillAllComplete(c *gin.Context) {
+	s.logger.Info("Starting complete backfill for all symbols (5 days)")
+
+	// Perform complete backfill for all symbols
+	allResults, err := s.backfill.BackfillAllSymbolsComplete()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Complete backfill failed",
 			"details": err.Error(),
 		})
 		return
@@ -483,29 +610,120 @@ func (s *Server) backfillAll(c *gin.Context) {
 
 	// Calculate summary statistics
 	totalSymbols := len(allResults)
-	totalGaps := 0
 	totalSuccess := 0
 	totalFailed := 0
+	totalFetched := 0
+	totalInserted := 0
 
-	for _, results := range allResults {
-		totalGaps += len(results)
-		for _, result := range results {
-			if result.Success {
-				totalSuccess++
-			} else {
-				totalFailed++
-			}
+	for _, result := range allResults {
+		if result.Success {
+			totalSuccess++
+		} else {
+			totalFailed++
 		}
+		totalFetched += result.Fetched
+		totalInserted += result.Inserted
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"status": "success",
 		"summary": gin.H{
-			"total_symbols": totalSymbols,
-			"total_gaps": totalGaps,
+			"total_symbols":        totalSymbols,
 			"successful_backfills": totalSuccess,
-			"failed_backfills": totalFailed,
+			"failed_backfills":     totalFailed,
+			"total_fetched":        totalFetched,
+			"total_inserted":       totalInserted,
 		},
 		"results": allResults,
 	})
+}
+
+// getBackfillProgress 获取当前回填进度
+func (s *Server) getBackfillProgress(c *gin.Context) {
+	// 获取回填服务的进度信息
+	progress := s.backfill.GetProgress()
+
+	// 获取当前时间
+	now := time.Now()
+
+	// 检查过去24小时的数据缺口
+	endTime := now.Truncate(time.Minute)
+	startTime := endTime.Add(-24 * time.Hour)
+
+	// 获取所有缺口
+	allGaps, err := s.storage.GetDataGapsForAllSymbols()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "error",
+			"message": fmt.Sprintf("Failed to get data gaps: %v", err),
+		})
+		return
+	}
+
+	// 统计缺口信息
+	totalSymbols := len(allGaps)
+	totalGaps := 0
+	totalMissing := 0
+	symbolsWithGaps := []string{}
+
+	for symbol, gaps := range allGaps {
+		if len(gaps) > 0 {
+			symbolsWithGaps = append(symbolsWithGaps, symbol)
+			totalGaps += len(gaps)
+			for _, gap := range gaps {
+				totalMissing += gap.Missing
+			}
+		}
+	}
+
+	// 获取完整性服务统计
+	integrityStats := s.integrity.GetStats()
+
+	// 计算进度百分比
+	var progressPercent float64
+	if progress.TotalSymbols > 0 {
+		progressPercent = float64(progress.Processed) / float64(progress.TotalSymbols) * 100
+	}
+
+	response := gin.H{
+		"status": "success",
+		"data": gin.H{
+			"check_time": now,
+			"time_range": gin.H{
+				"start": startTime.Format("2006-01-02 15:04:05"),
+				"end":   endTime.Format("2006-01-02 15:04:05"),
+			},
+			"gaps_summary": gin.H{
+				"total_symbols":     totalSymbols,
+				"symbols_with_gaps": len(symbolsWithGaps),
+				"total_gaps":        totalGaps,
+				"total_missing":     totalMissing,
+			},
+			"symbols_with_gaps": symbolsWithGaps,
+			"integrity_stats":   integrityStats,
+			"backfill_progress": gin.H{
+				"is_running":       progress.IsRunning,
+				"start_time":       progress.StartTime,
+				"current_symbol":   progress.CurrentSymbol,
+				"total_symbols":    progress.TotalSymbols,
+				"processed":        progress.Processed,
+				"success_count":    progress.SuccessCount,
+				"failed_count":     progress.FailedCount,
+				"progress_percent": progressPercent,
+				"last_update":      progress.LastUpdate,
+				"estimated_time_remaining": func() string {
+					if !progress.IsRunning || progress.Processed == 0 {
+						return "unknown"
+					}
+					elapsed := time.Since(progress.StartTime)
+					avgTimePerSymbol := elapsed / time.Duration(progress.Processed)
+					remainingSymbols := progress.TotalSymbols - progress.Processed
+					estimatedRemaining := avgTimePerSymbol * time.Duration(remainingSymbols)
+					return estimatedRemaining.String()
+				}(),
+			},
+		},
+	}
+
+	c.JSON(http.StatusOK, response)
 }

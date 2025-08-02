@@ -15,7 +15,7 @@ websocket:
   timeout: 30
   # symbols列表将从币安API动态获取
   # 支持所有USDT交易对
-  auto_fetch_symbols: true
+  auto_fetch_symbols: false
   symbol_filter:
     quote_asset: USDT
     exclude_patterns:
@@ -55,11 +55,25 @@ batch_writer:
 # 数据校验与回补服务配置
 validator:
   enabled: true
-  check_interval: "5m"        # 检查间隔
+  check_interval: "5m"        # 检查间隔改为5分钟
   max_gap_duration: "24h"     # 最大允许修复的数据间隙时长
   history_days: 7             # 检查历史数据的天数
   batch_size: 100             # 批量处理大小
   concurrent_workers: 3       # 并发工作线程数
+  auto_backfill: true         # 自动回填小缺口
+  backfill_threshold: "1h"    # 自动回填阈值（小于1小时的缺口自动修复）
+  integration_mode: "backfill" # 与backfill服务集成模式
+
+# 数据回填配置
+backfill:
+  enabled: true
+  days_to_backfill: 5         # 回填天数：从当前时间往前推5天
+  batch_size: 1000            # 每次API请求的最大记录数
+  request_interval: "10s"    # 请求间隔，避免触发币安限制
+  symbol_interval: "10s"       # 不同交易对之间的间隔
+  max_concurrent_symbols: 1   # 同时处理的交易对数量（设为1避免限制）
+  retry_attempts: 3           # 重试次数
+  retry_delay: "5s"           # 重试延迟
 
 proxy:
   enabled: true

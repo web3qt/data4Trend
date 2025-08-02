@@ -95,20 +95,20 @@ validator:
 ### 1. 独立运行
 
 ```bash
-# 编译validator服务
-go build -o bin/validator cmd/validator/main.go
+# 编译backfill-validator服务
+go build -o bin/backfill-validator cmd/backfill-validator/main.go
 
 # 运行服务（持续模式）
-./bin/validator -config config/config.yaml
+./bin/backfill-validator -config config/config.yaml
 
-# 运行一次性检查
-./bin/validator -config config/config.yaml -once
+# 仅执行验证
+./bin/backfill-validator -config config/config.yaml -validate-only
 
-# 查看统计信息
-./bin/validator -config config/config.yaml -stats
+# 回填特定交易对
+./bin/backfill-validator -config config/config.yaml -symbol BTCUSDT -days 5
 
-# 设置日志级别
-./bin/validator -config config/config.yaml -log-level debug
+# 回填所有交易对
+./bin/backfill-validator -config config/config.yaml -days 5
 ```
 
 ### 2. 集成到主服务
@@ -117,10 +117,9 @@ go build -o bin/validator cmd/validator/main.go
 package main
 
 import (
-    "data4trend/pkg/validator"
+    "data4trend/pkg/backfill"
     "data4trend/pkg/config"
     "data4trend/pkg/storage"
-    "data4trend/pkg/backfill"
 )
 
 func main() {
@@ -130,18 +129,15 @@ func main() {
     // 初始化存储
     storage, _ := storage.NewClickHouseStorage(cfg, logger)
     
-    // 初始化回补服务
-    backfill := backfill.NewBackfillService(cfg, storage, logger)
-    
-    // 初始化验证服务
-    validator := validator.NewValidatorService(cfg, storage, backfill, logger)
+    // 初始化合并的BackfillValidator服务
+    backfillValidator := backfill.NewBackfillValidatorService(cfg, storage, logger)
     
     // 启动服务
-    validator.Start()
-    defer validator.Stop()
+    backfillValidator.Start()
+    defer backfillValidator.Stop()
     
     // 获取统计信息
-    stats := validator.GetStats()
+    stats := backfillValidator.GetStats()
     fmt.Printf("Total checks: %d\n", stats.TotalChecks)
 }
 ```

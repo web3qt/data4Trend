@@ -10,24 +10,18 @@ USE data4trend;
 -- 创建1分钟K线数据表
 CREATE TABLE IF NOT EXISTS klines_1m (
     symbol String,
-    open_time DateTime64(3),
-    close_time DateTime64(3),
-    open Decimal(20, 8),
-    high Decimal(20, 8),
-    low Decimal(20, 8),
-    close Decimal(20, 8),
-    volume Decimal(20, 8),
-    quote_asset_volume Decimal(20, 8),
-    number_of_trades UInt64,
-    taker_buy_base_asset_volume Decimal(20, 8),
-    taker_buy_quote_asset_volume Decimal(20, 8),
-    interval String,
+    open_time Int64,
+    close_time Int64,
+    open String,
+    high String,
+    low String,
+    close String,
+    volume String,
     created_at DateTime DEFAULT now(),
-    updated_at DateTime DEFAULT now()
-) ENGINE = MergeTree()
+    version UInt32 DEFAULT 1
+) ENGINE = ReplacingMergeTree(version)
 ORDER BY (symbol, open_time)
-PARTITION BY toYYYYMM(open_time)
-TTL toDateTime(open_time) + INTERVAL 7 DAY;  -- 自动删除7天前的数据
+PARTITION BY toYYYYMM(toDateTime(open_time / 1000));
 
 -- ClickHouse MergeTree表的ORDER BY已经提供了索引，无需手动创建
 

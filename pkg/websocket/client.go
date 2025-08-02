@@ -20,14 +20,14 @@ import (
 
 // Client 代表Binance流的WebSocket客户端
 type Client struct {
-	config      *config.Config
+	config        *config.Config
 	kafkaProducer *kafka.Producer
-	logger      *logrus.Logger
-	connections map[string]*websocket.Conn
-	mutex       sync.RWMutex
-	ctx         context.Context
-	cancel      context.CancelFunc
-	stats       *Stats
+	logger        *logrus.Logger
+	connections   map[string]*websocket.Conn
+	mutex         sync.RWMutex
+	ctx           context.Context
+	cancel        context.CancelFunc
+	stats         *Stats
 }
 
 // Stats 代表WebSocket客户端统计信息
@@ -154,6 +154,8 @@ func (c *Client) handleConnection(conn *websocket.Conn, symbol string) {
 	// Set up ping/pong handlers
 	conn.SetPingHandler(func(appData string) error {
 		c.logger.Debugf("Received ping for %s", symbol)
+		c.mutex.Lock()
+		defer c.mutex.Unlock()
 		return conn.WriteMessage(websocket.PongMessage, []byte(appData))
 	})
 
@@ -234,10 +236,14 @@ func (c *Client) pingRoutine(conn *websocket.Conn, symbol string) {
 		case <-c.ctx.Done():
 			return
 		case <-ticker.C:
+			// Use a mutex to prevent concurrent writes
+			c.mutex.Lock()
 			if err := conn.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
 				c.logger.Errorf("Failed to send ping to %s: %v", symbol, err)
+				c.mutex.Unlock()
 				return
 			}
+			c.mutex.Unlock()
 			c.logger.Debugf("Sent ping to %s", symbol)
 		}
 	}

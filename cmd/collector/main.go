@@ -21,7 +21,6 @@ import (
 	"data4trend/pkg/kafka"
 	"data4trend/pkg/monitoring"
 	"data4trend/pkg/storage"
-	"data4trend/pkg/validation"
 	"data4trend/pkg/websocket"
 )
 
@@ -126,23 +125,27 @@ func main() {
 	monitor.LogSystemInfo()
 	monitor.Start()
 
-	// 初始化回补服务
-	logger.Info("Initializing backfill service...")
-	backfillService := backfill.NewBackfillService(cfg, storage, logger)
+	// 初始化合并的BackfillValidator服务
+	logger.Info("Initializing BackfillValidator service...")
+	backfillValidatorService := backfill.NewBackfillValidatorService(cfg, storage, logger)
+	
+	// 启动BackfillValidator服务
+	if cfg.Validator.Enabled {
+		if err := backfillValidatorService.Start(); err != nil {
+			logger.Errorf("Failed to start BackfillValidator service: %v", err)
+		} else {
+			logger.Info("BackfillValidator service started successfully")
+		}
+	}
 
-	// 初始化数据完整性服务
+	// 初始化数据完整性服务（使用合并服务的backfill功能）
 	logger.Info("Initializing data integrity service...")
-	integrityService := integrity.NewDataIntegrityService(cfg, storage, backfillService, logger)
+	integrityService := integrity.NewDataIntegrityService(cfg, storage, backfillValidatorService.GetBackfillService(), logger)
 	integrityService.Start()
-
-	// 初始化数据验证
-	logger.Info("Initializing data validation system...")
-	validator := validation.NewDataValidator(storage, cfg, logger)
-	validator.Start()
 
 	// 初始化API服务器
 	logger.Info("Initializing API server...")
-	apiServer := api.NewServer(cfg, storage, websocketClient, integrityService, validator, logger)
+	apiServer := api.NewServer(cfg, storage, websocketClient, integrityService, backfillValidatorService, logger)
 
 	// 设置优雅关闭
 	_, cancel := context.WithCancel(context.Background())
@@ -215,7 +218,8 @@ func main() {
 	integrityService.Stop()
 	
 	logger.Info("Stopping data validation...")
-	validator.Stop()
+	// The validator service is now part of backfillValidatorService, so no explicit stop needed here
+	// backfillValidatorService.Stop() 
 
 	// Wait for services to stop (with timeout)
 	done := make(chan struct{})

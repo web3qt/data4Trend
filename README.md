@@ -40,22 +40,22 @@ export HTTPS_PROXY=http://127.0.0.1:7890
 go build -o bin/data4trend-collector cmd/collector/main.go
 
 # 编译数据校验与回补服务
-go build -o bin/validator cmd/validator/main.go
+go build -o bin/backfill-validator cmd/backfill-validator/main.go
 ```
 
 ### 数据校验与回补服务
 ```bash
 # 运行数据校验服务（持续模式）
-./bin/validator -config config/config.yaml
+./bin/backfill-validator -config config/config.yaml
 
-# 运行一次性数据检查
-./bin/validator -config config/config.yaml -once
+# 仅执行验证，不进行回填
+./bin/backfill-validator -config config/config.yaml -validate-only
 
-# 查看校验统计信息
-./bin/validator -config config/config.yaml -stats
+# 回填特定交易对
+./bin/backfill-validator -config config/config.yaml -symbol BTCUSDT -days 5
 
-# 设置日志级别
-./bin/validator -config config/config.yaml -log-level debug
+# 回填所有交易对
+./bin/backfill-validator -config config/config.yaml -days 5
 ```
 
 ## 🌐 API接口

@@ -84,8 +84,9 @@ func (s *ClickHouseStorage) initializeDatabase() error {
 			low String,
 			close String,
 			volume String,
-			created_at DateTime DEFAULT now()
-		) ENGINE = MergeTree()
+			created_at DateTime DEFAULT now(),
+			version UInt32 DEFAULT 1
+		) ENGINE = ReplacingMergeTree(version)
 		ORDER BY (symbol, open_time)
 		PARTITION BY toYYYYMM(toDateTime(open_time / 1000))
 	`, s.config.Database.Database, s.config.Database.Table)
@@ -104,8 +105,8 @@ func (s *ClickHouseStorage) InsertKlineData(data *types.KlineData) error {
 
 	query := fmt.Sprintf(`
 		INSERT INTO %s.%s 
-		(symbol, open_time, close_time, open, high, low, close, volume, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		(symbol, open_time, close_time, open, high, low, close, volume, created_at, version)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, s.config.Database.Database, s.config.Database.Table)
 
 	err := s.conn.Exec(ctx, query,
@@ -118,6 +119,7 @@ func (s *ClickHouseStorage) InsertKlineData(data *types.KlineData) error {
 		data.Close,
 		data.Volume,
 		data.CreatedAt,
+		1, // version
 	)
 
 	if err != nil {
@@ -140,7 +142,7 @@ func (s *ClickHouseStorage) BatchInsertKlineData(dataList []*types.KlineData) er
 
 	batch, err := s.conn.PrepareBatch(ctx, fmt.Sprintf(`
 		INSERT INTO %s.%s 
-		(symbol, open_time, close_time, open, high, low, close, volume, created_at)
+		(symbol, open_time, close_time, open, high, low, close, volume, created_at, version)
 	`, s.config.Database.Database, s.config.Database.Table))
 
 	if err != nil {
@@ -159,6 +161,7 @@ func (s *ClickHouseStorage) BatchInsertKlineData(dataList []*types.KlineData) er
 			data.Close,
 			data.Volume,
 			data.CreatedAt,
+			1, // version
 		)
 		if err != nil {
 			return fmt.Errorf("failed to append record %d/%d to batch: %w", i+1, len(dataList), err)
@@ -458,11 +461,11 @@ func (s *ClickHouseStorage) DetectDataGaps(symbol string, startTime, endTime tim
 				FROM numbers(dateDiff('minute', toDateTime('%s'), toDateTime('%s')) + 1)
 			),
 			actual_data AS (
-				SELECT DISTINCT toDateTime(toInt64(open_time) / 1000) as actual_time
+				SELECT DISTINCT toDateTime(open_time) as actual_time
 				FROM %s.%s 
 				WHERE symbol = '%s' 
-					AND toDateTime(toInt64(open_time) / 1000) >= toDateTime('%s') 
-					AND toDateTime(toInt64(open_time) / 1000) <= toDateTime('%s')
+					AND toDateTime(open_time) >= toDateTime('%s') 
+					AND toDateTime(open_time) <= toDateTime('%s')
 			)
 		SELECT expected_time
 		FROM time_series
@@ -477,6 +480,8 @@ func (s *ClickHouseStorage) DetectDataGaps(symbol string, startTime, endTime tim
 		symbol,
 		startTime.Format("2006-01-02 15:04:05"),
 		endTime.Format("2006-01-02 15:04:05"))
+
+	s.logger.Debugf("Detecting gaps for %s: %s to %s", symbol, startTime.Format("2006-01-02 15:04:05"), endTime.Format("2006-01-02 15:04:05"))
 
 	rows, err := s.conn.Query(ctx, query)
 	if err != nil {
@@ -493,6 +498,8 @@ func (s *ClickHouseStorage) DetectDataGaps(symbol string, startTime, endTime tim
 		}
 		missingTimes = append(missingTimes, missingTime)
 	}
+
+	s.logger.Debugf("Found %d missing time points for %s", len(missingTimes), symbol)
 
 	// 将连续的缺失时间分组为缺口
 	if len(missingTimes) == 0 {
@@ -531,6 +538,7 @@ func (s *ClickHouseStorage) DetectDataGaps(symbol string, startTime, endTime tim
 		Missing:   count,
 	})
 
+	s.logger.Debugf("Detected %d gaps for %s", len(gaps), symbol)
 	return gaps, nil
 }
 
@@ -540,7 +548,7 @@ func (s *ClickHouseStorage) GetDataGapsForAllSymbols() (map[string][]*DataGap, e
 	result := make(map[string][]*DataGap)
 
 	// 获取所有交易对
-	symbolQuery := fmt.Sprintf("SELECT DISTINCT symbol FROM %s.%s WHERE created_at >= now() - INTERVAL 24 HOUR",
+	symbolQuery := fmt.Sprintf("SELECT DISTINCT symbol FROM %s.%s WHERE toDateTime(open_time) >= now() - INTERVAL 24 HOUR",
 		s.config.Database.Database, s.config.Database.Table)
 
 	rows, err := s.conn.Query(ctx, symbolQuery)
@@ -558,6 +566,8 @@ func (s *ClickHouseStorage) GetDataGapsForAllSymbols() (map[string][]*DataGap, e
 		symbols = append(symbols, symbol)
 	}
 
+	s.logger.Infof("Found %d symbols with data in last 24 hours", len(symbols))
+
 	// 检查过去24小时内每个交易对的缺口
 	endTime := time.Now()
 	startTime := endTime.Add(-24 * time.Hour)
@@ -570,6 +580,7 @@ func (s *ClickHouseStorage) GetDataGapsForAllSymbols() (map[string][]*DataGap, e
 		}
 		if len(gaps) > 0 {
 			result[symbol] = gaps
+			s.logger.Infof("Found %d gaps for %s", len(gaps), symbol)
 		}
 	}
 
