@@ -49,6 +49,15 @@ batch_writer:
   max_retries: 3
   retry_interval: "5s"
 
+# 数据校验与回补服务配置
+validator:
+  enabled: true
+  check_interval: "5m"        # 检查间隔
+  max_gap_duration: "24h"     # 最大允许修复的数据间隙时长
+  history_days: 7             # 检查历史数据的天数
+  batch_size: 100             # 批量处理大小
+  concurrent_workers: 3       # 并发工作线程数
+
 proxy:
   enabled: true
   type: "socks5"

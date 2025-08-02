@@ -6,12 +6,21 @@ echo "=== 停止KRaft Kafka架构的数据收集系统 ==="
 echo
 
 # 停止应用程序
-echo "1. 停止数据收集器..."
+echo "1. 停止应用程序..."
+echo "  - 停止数据收集器..."
 pkill -f "data4trend-collector" 2>/dev/null
 if [ $? -eq 0 ]; then
-    echo "数据收集器已停止"
+    echo "    数据收集器已停止"
 else
-    echo "数据收集器未运行或已停止"
+    echo "    数据收集器未运行或已停止"
+fi
+
+echo "  - 停止数据校验与回补服务..."
+pkill -f "validator" 2>/dev/null
+if [ $? -eq 0 ]; then
+    echo "    数据校验服务已停止"
+else
+    echo "    数据校验服务未运行或已停止"
 fi
 echo
 

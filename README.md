@@ -12,6 +12,8 @@
 - 🛡️ **代理支持**: 支持HTTP代理，避免网络限制
 - 📈 **监控系统**: 内置监控和健康检查
 - 🔧 **易于部署**: 单一二进制文件，配置简单
+- 🔍 **数据校验**: 自动检测数据缺口并进行回补
+- ⚡ **KRaft模式**: 使用无ZooKeeper的Kafka KRaft模式
 
 ## 🚀 快速开始
 
@@ -34,8 +36,26 @@ export HTTPS_PROXY=http://127.0.0.1:7890
 
 ### 编译程序
 ```bash
-# 编译二进制文件
+# 编译数据收集器
 go build -o bin/data4trend-collector cmd/collector/main.go
+
+# 编译数据校验与回补服务
+go build -o bin/validator cmd/validator/main.go
+```
+
+### 数据校验与回补服务
+```bash
+# 运行数据校验服务（持续模式）
+./bin/validator -config config/config.yaml
+
+# 运行一次性数据检查
+./bin/validator -config config/config.yaml -once
+
+# 查看校验统计信息
+./bin/validator -config config/config.yaml -stats
+
+# 设置日志级别
+./bin/validator -config config/config.yaml -log-level debug
 ```
 
 ## 🌐 API接口

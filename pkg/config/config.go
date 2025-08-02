@@ -17,6 +17,7 @@ type Config struct {
 	API          APIConfig          `yaml:"api"`
 	Kafka        KafkaConfig        `yaml:"kafka"`
 	BatchWriter  BatchWriterConfig  `yaml:"batch_writer"`
+	Validator    ValidatorConfig    `yaml:"validator"`
 	Proxy        ProxyConfig        `yaml:"proxy"`
 	Symbols      []string           `yaml:"symbols,omitempty"`
 	Interval     string             `yaml:"interval"`
@@ -93,6 +94,16 @@ type BatchWriterConfig struct {
 	BatchTimeout  string `yaml:"batch_timeout"`
 	MaxRetries    int    `yaml:"max_retries"`
 	RetryInterval string `yaml:"retry_interval"`
+}
+
+// ValidatorConfig represents validator service configuration
+type ValidatorConfig struct {
+	Enabled           bool   `yaml:"enabled"`
+	CheckInterval     string `yaml:"check_interval"`
+	MaxGapDuration    string `yaml:"max_gap_duration"`
+	HistoryDays       int    `yaml:"history_days"`
+	BatchSize         int    `yaml:"batch_size"`
+	ConcurrentWorkers int    `yaml:"concurrent_workers"`
 }
 
 // LoadConfig loads configuration from file and environment variables

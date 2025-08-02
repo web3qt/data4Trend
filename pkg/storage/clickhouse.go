@@ -566,3 +566,27 @@ func (s *ClickHouseStorage) GetDataGapsForAllSymbols() (map[string][]*DataGap, e
 
 	return result, nil
 }
+
+// GetAllSymbols returns all unique symbols in the database
+func (s *ClickHouseStorage) GetAllSymbols() ([]string, error) {
+	ctx := context.Background()
+	query := fmt.Sprintf("SELECT DISTINCT symbol FROM %s.%s ORDER BY symbol", 
+		s.config.Database.Database, s.config.Database.Table)
+	
+	rows, err := s.conn.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query symbols: %w", err)
+	}
+	defer rows.Close()
+	
+	var symbols []string
+	for rows.Next() {
+		var symbol string
+		if err := rows.Scan(&symbol); err != nil {
+			return nil, fmt.Errorf("failed to scan symbol: %w", err)
+		}
+		symbols = append(symbols, symbol)
+	}
+	
+	return symbols, nil
+}

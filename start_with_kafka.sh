@@ -51,10 +51,19 @@ echo
 
 # 编译应用程序
 echo "5. 编译应用程序..."
+echo "  - 编译数据收集器..."
 go build -o bin/data4trend-collector cmd/collector/main.go
 
 if [ $? -ne 0 ]; then
-    echo "错误: 编译失败"
+    echo "错误: 数据收集器编译失败"
+    exit 1
+fi
+
+echo "  - 编译数据校验与回补服务..."
+go build -o bin/validator cmd/validator/main.go
+
+if [ $? -ne 0 ]; then
+    echo "错误: 数据校验服务编译失败"
     exit 1
 fi
 
@@ -62,15 +71,31 @@ echo "编译成功"
 echo
 
 # 启动应用程序
-echo "6. 启动数据收集器..."
+echo "6. 启动服务..."
 echo "KRaft架构说明:"
 echo "  - Kafka运行在KRaft模式 (无ZooKeeper依赖)"
 echo "  - WebSocket客户端 -> Kafka生产者 -> Kafka主题"
 echo "  - Kafka消费者 -> 批量写入器 -> ClickHouse"
+echo "  - 数据校验与回补服务自动检测和修复数据缺口"
 echo "  - API服务器: http://localhost:8080"
 echo "  - Kafka UI: http://localhost:8090"
 echo
-echo "按Ctrl+C停止服务"
+
+# 启动数据校验与回补服务（后台运行）
+echo "启动数据校验与回补服务..."
+./bin/validator --config=config/config.yaml --log-level=info &
+VALIDATOR_PID=$!
+echo "数据校验服务已启动 (PID: $VALIDATOR_PID)"
+
+# 等待一下确保validator服务启动
+sleep 2
+
+echo "启动数据收集器..."
+echo "按Ctrl+C停止所有服务"
 echo
 
+# 设置信号处理，确保停止时同时停止两个服务
+trap 'echo "\n正在停止服务..."; kill $VALIDATOR_PID 2>/dev/null; exit' INT TERM
+
+# 启动数据收集器（前台运行）
 ./bin/data4trend-collector --config=config/config.yaml --log-level=info
