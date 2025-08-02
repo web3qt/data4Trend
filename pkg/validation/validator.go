@@ -13,7 +13,7 @@ import (
 	"data4trend/pkg/storage"
 )
 
-// DataValidator represents the data validation component
+// DataValidator 代表数据验证组件
 type DataValidator struct {
 	storage   *storage.ClickHouseStorage
 	config    *config.Config
@@ -24,7 +24,7 @@ type DataValidator struct {
 	cancel    context.CancelFunc
 }
 
-// ValidationResult represents the result of data validation
+// ValidationResult 代表数据验证结果
 type ValidationResult struct {
 	Timestamp        time.Time                    `json:"timestamp"`
 	OverallStatus    string                       `json:"overall_status"`
@@ -37,7 +37,7 @@ type ValidationResult struct {
 	DataQuality      DataQualityMetrics           `json:"data_quality"`
 }
 
-// ValidationIssue represents a specific validation issue
+// ValidationIssue 代表特定的验证问题
 type ValidationIssue struct {
 	Symbol      string    `json:"symbol"`
 	IssueType   string    `json:"issue_type"`
@@ -47,7 +47,7 @@ type ValidationIssue struct {
 	Count       int       `json:"count,omitempty"`
 }
 
-// AnomalousDataPoint represents anomalous data
+// AnomalousDataPoint 代表异常数据点
 type AnomalousDataPoint struct {
 	Symbol      string    `json:"symbol"`
 	Timestamp   time.Time `json:"timestamp"`
@@ -58,7 +58,7 @@ type AnomalousDataPoint struct {
 	Description string    `json:"description"`
 }
 
-// DataQualityMetrics represents overall data quality metrics
+// DataQualityMetrics 代表整体数据质量指标
 type DataQualityMetrics struct {
 	CompletenessScore float64 `json:"completeness_score"`
 	AccuracyScore     float64 `json:"accuracy_score"`
@@ -67,7 +67,7 @@ type DataQualityMetrics struct {
 	OverallScore      float64 `json:"overall_score"`
 }
 
-// NewDataValidator creates a new data validator instance
+// NewDataValidator 创建新的数据验证器实例
 func NewDataValidator(storage *storage.ClickHouseStorage, config *config.Config, logger *logrus.Logger) *DataValidator {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &DataValidator{
@@ -80,24 +80,24 @@ func NewDataValidator(storage *storage.ClickHouseStorage, config *config.Config,
 	}
 }
 
-// Start starts the periodic data validation
+// Start 启动周期性数据验证
 func (v *DataValidator) Start() {
 	v.logger.Info("Starting data validation service...")
 	
-	// Run initial validation
+	// 运行初始验证
 	go v.runValidation()
 	
-	// Start periodic validation (every 30 minutes)
+	// 启动周期性验证（每30分钟）
 	go v.periodicValidation()
 }
 
-// Stop stops the data validation service
+// Stop 停止数据验证服务
 func (v *DataValidator) Stop() {
 	v.logger.Info("Stopping data validation service...")
 	v.cancel()
 }
 
-// periodicValidation runs validation checks periodically
+// periodicValidation 周期性运行验证检查
 func (v *DataValidator) periodicValidation() {
 	ticker := time.NewTicker(30 * time.Minute)
 	defer ticker.Stop()
@@ -112,7 +112,7 @@ func (v *DataValidator) periodicValidation() {
 	}
 }
 
-// runValidation performs comprehensive data validation
+// runValidation 执行全面的数据验证
 func (v *DataValidator) runValidation() {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
@@ -128,25 +128,25 @@ func (v *DataValidator) runValidation() {
 		AnomalousData:    []AnomalousDataPoint{},
 	}
 	
-	// 1. Check data completeness (gaps)
+	// 1. 检查数据完整性（缺口）
 	v.checkDataCompleteness(result)
 	
-	// 2. Check for duplicate records
+	// 2. 检查重复记录
 	v.checkDuplicateRecords(result)
 	
-	// 3. Check for anomalous data
+	// 3. 检查异常数据
 	v.checkAnomalousData(result)
 	
-	// 4. Check data timeliness
+	// 4. 检查数据时效性
 	v.checkDataTimeliness(result)
 	
-	// 5. Calculate data quality metrics
+	// 5. 计算数据质量指标
 	v.calculateDataQuality(result)
 	
-	// 6. Determine overall status
+	// 6. 确定整体状态
 	v.determineOverallStatus(result)
 	
-	// 7. Store validation results
+	// 7. 存储验证结果
 	v.storeValidationResults(result)
 	
 	v.lastCheck = time.Now()

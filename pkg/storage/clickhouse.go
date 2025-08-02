@@ -13,14 +13,14 @@ import (
 	"data4trend/pkg/config"
 )
 
-// ClickHouseStorage represents ClickHouse storage implementation
+// ClickHouseStorage 代表ClickHouse存储实现
 type ClickHouseStorage struct {
 	conn   driver.Conn
 	config *config.Config
 	logger *logrus.Logger
 }
 
-// NewClickHouseStorage creates a new ClickHouse storage instance
+// NewClickHouseStorage 创建一个新的ClickHouse存储实例
 func NewClickHouseStorage(cfg *config.Config, logger *logrus.Logger) (*ClickHouseStorage, error) {
 	options := &clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", cfg.Database.Host, cfg.Database.Port)},
@@ -52,7 +52,7 @@ func NewClickHouseStorage(cfg *config.Config, logger *logrus.Logger) (*ClickHous
 		logger: logger,
 	}
 
-	// Initialize database and table
+	// 初始化数据库和表
 	if err := storage.initializeDatabase(); err != nil {
 		return nil, fmt.Errorf("failed to initialize database: %w", err)
 	}
@@ -60,11 +60,11 @@ func NewClickHouseStorage(cfg *config.Config, logger *logrus.Logger) (*ClickHous
 	return storage, nil
 }
 
-// initializeDatabase creates database and table if they don't exist
+// initializeDatabase 如果数据库和表不存在则创建它们
 func (s *ClickHouseStorage) initializeDatabase() error {
 	ctx := context.Background()
 
-	// Create database if not exists
+	// 如果数据库不存在则创建
 	createDBQuery := fmt.Sprintf(`
 		CREATE DATABASE IF NOT EXISTS %s
 	`, s.config.Database.Database)
@@ -73,7 +73,7 @@ func (s *ClickHouseStorage) initializeDatabase() error {
 		return fmt.Errorf("failed to create database: %w", err)
 	}
 
-	// Create table if not exists
+	// 如果表不存在则创建
 	createTableQuery := fmt.Sprintf(`
 		CREATE TABLE IF NOT EXISTS %s.%s (
 			symbol String,
@@ -98,7 +98,7 @@ func (s *ClickHouseStorage) initializeDatabase() error {
 	return nil
 }
 
-// InsertKlineData inserts kline data into ClickHouse
+// InsertKlineData 将K线数据插入ClickHouse
 func (s *ClickHouseStorage) InsertKlineData(data *types.KlineData) error {
 	ctx := context.Background()
 
@@ -127,7 +127,7 @@ func (s *ClickHouseStorage) InsertKlineData(data *types.KlineData) error {
 	return nil
 }
 
-// BatchInsertKlineData inserts multiple kline data records
+// BatchInsertKlineData 批量插入多条K线数据记录
 func (s *ClickHouseStorage) BatchInsertKlineData(dataList []*types.KlineData) error {
 	if len(dataList) == 0 {
 		return nil
@@ -169,12 +169,12 @@ func (s *ClickHouseStorage) BatchInsertKlineData(dataList []*types.KlineData) er
 	return nil
 }
 
-// InsertKlineDataBatch is an alias for BatchInsertKlineData for compatibility
+// InsertKlineDataBatch 是BatchInsertKlineData的别名，用于兼容性
 func (s *ClickHouseStorage) InsertKlineDataBatch(dataList []*types.KlineData) error {
 	return s.BatchInsertKlineData(dataList)
 }
 
-// GetKlineData retrieves kline data from ClickHouse
+// GetKlineData 从ClickHouse检索K线数据
 func (s *ClickHouseStorage) GetKlineData(symbol string, limit int, startTime, endTime *time.Time) ([]*types.KlineData, error) {
 	ctx := context.Background()
 
@@ -236,7 +236,7 @@ func (s *ClickHouseStorage) GetKlineData(symbol string, limit int, startTime, en
 	return result, nil
 }
 
-// GetDuplicateRecords checks for duplicate records in the last 24 hours
+// GetDuplicateRecords 检查过去24小时内的重复记录
 func (s *ClickHouseStorage) GetDuplicateRecords() (map[string]int, error) {
 	ctx := context.Background()
 	result := make(map[string]int)
@@ -276,7 +276,7 @@ func (s *ClickHouseStorage) GetDuplicateRecords() (map[string]int, error) {
 	return result, nil
 }
 
-// GetStaleDataSymbols returns symbols with stale data (no updates in last 5 minutes)
+// GetStaleDataSymbols 返回具有陈旧数据的交易对（过去5分钟内没有更新）
 func (s *ClickHouseStorage) GetStaleDataSymbols() (map[string]time.Duration, error) {
 	ctx := context.Background()
 	result := make(map[string]time.Duration)
@@ -310,12 +310,12 @@ func (s *ClickHouseStorage) GetStaleDataSymbols() (map[string]time.Duration, err
 	return result, nil
 }
 
-// GetAnomalousData detects anomalous data points (extreme price movements)
+// GetAnomalousData 检测异常数据点（极端价格变动）
 func (s *ClickHouseStorage) GetAnomalousData() ([]map[string]interface{}, error) {
 	ctx := context.Background()
 	result := []map[string]interface{}{}
 	
-	// Check for extreme price movements (>50% change in 1 minute)
+	// 检查极端价格变动（1分钟内变化>50%）
 	query := fmt.Sprintf(`
 		SELECT 
 			symbol,
@@ -357,7 +357,7 @@ func (s *ClickHouseStorage) GetAnomalousData() ([]map[string]interface{}, error)
 	return result, nil
 }
 
-// StoreValidationResult stores validation results to database
+// StoreValidationResult 将验证结果存储到数据库
 func (s *ClickHouseStorage) StoreValidationResult(timestamp time.Time, overallStatus string, totalSymbols, healthySymbols int, completenessScore, accuracyScore, consistencyScore, timelinessScore, overallScore float64, issuesCount int) error {
 	ctx := context.Background()
 	
@@ -379,13 +379,13 @@ func (s *ClickHouseStorage) StoreValidationResult(timestamp time.Time, overallSt
 	return nil
 }
 
-// GetStats returns database statistics
+// GetStats 返回数据库统计信息
 func (s *ClickHouseStorage) GetStats() (map[string]interface{}, error) {
 	ctx := context.Background()
 
 	stats := make(map[string]interface{})
 
-	// Get total count
+	// 获取总数
 	countQuery := fmt.Sprintf("SELECT count() FROM %s.%s", s.config.Database.Database, s.config.Database.Table)
 	var totalCount uint64
 	if err := s.conn.QueryRow(ctx, countQuery).Scan(&totalCount); err != nil {
@@ -394,7 +394,7 @@ func (s *ClickHouseStorage) GetStats() (map[string]interface{}, error) {
 	}
 	stats["total_records"] = totalCount
 
-	// Get latest record time
+	// 获取最新记录时间
 	latestQuery := fmt.Sprintf("SELECT max(created_at) FROM %s.%s", s.config.Database.Database, s.config.Database.Table)
 	var latestTime time.Time
 	if err := s.conn.QueryRow(ctx, latestQuery).Scan(&latestTime); err != nil {
@@ -403,7 +403,7 @@ func (s *ClickHouseStorage) GetStats() (map[string]interface{}, error) {
 		stats["latest_record_time"] = latestTime
 	}
 
-	// Get symbol count
+	// 获取交易对数量
 	symbolQuery := fmt.Sprintf("SELECT count(DISTINCT symbol) FROM %s.%s", s.config.Database.Database, s.config.Database.Table)
 	var symbolCount uint64
 	if err := s.conn.QueryRow(ctx, symbolQuery).Scan(&symbolCount); err != nil {
@@ -415,7 +415,7 @@ func (s *ClickHouseStorage) GetStats() (map[string]interface{}, error) {
 	return stats, nil
 }
 
-// Close closes the ClickHouse connection
+// Close 关闭ClickHouse连接
 func (s *ClickHouseStorage) Close() error {
 	if s.conn != nil {
 		return s.conn.Close()
@@ -423,12 +423,12 @@ func (s *ClickHouseStorage) Close() error {
 	return nil
 }
 
-// TestConnection tests the database connection
+// TestConnection 测试数据库连接
 func (s *ClickHouseStorage) TestConnection() error {
 	return s.conn.Ping(context.Background())
 }
 
-// DataGap represents a gap in the data
+// DataGap 代表数据中的缺口
 type DataGap struct {
 	Symbol    string    `json:"symbol"`
 	StartTime time.Time `json:"start_time"`
@@ -436,12 +436,12 @@ type DataGap struct {
 	Missing   int       `json:"missing_count"`
 }
 
-// DetectDataGaps detects missing data gaps for a symbol within a time range
+// DetectDataGaps 检测指定交易对在时间范围内的数据缺口
 func (s *ClickHouseStorage) DetectDataGaps(symbol string, startTime, endTime time.Time) ([]*DataGap, error) {
 	ctx := context.Background()
 	gaps := []*DataGap{}
 
-	// Query to find gaps in 1-minute intervals
+	// 查询1分钟间隔内的数据缺口
 	query := fmt.Sprintf(`
 		WITH 
 			time_series AS (
@@ -475,7 +475,7 @@ func (s *ClickHouseStorage) DetectDataGaps(symbol string, startTime, endTime tim
 	}
 	defer rows.Close()
 
-	// Collect missing timestamps
+	// 收集缺失的时间戳
 	missingTimes := []time.Time{}
 	for rows.Next() {
 		var missingTime time.Time
@@ -485,7 +485,7 @@ func (s *ClickHouseStorage) DetectDataGaps(symbol string, startTime, endTime tim
 		missingTimes = append(missingTimes, missingTime)
 	}
 
-	// Group consecutive missing times into gaps
+	// 将连续的缺失时间分组为缺口
 	if len(missingTimes) == 0 {
 		return gaps, nil
 	}
@@ -495,26 +495,26 @@ func (s *ClickHouseStorage) DetectDataGaps(symbol string, startTime, endTime tim
 	count := 1
 
 	for i := 1; i < len(missingTimes); i++ {
-		// Check if this timestamp is consecutive (1 minute after previous)
+		// 检查此时间戳是否连续（比前一个晚1分钟）
 		if missingTimes[i].Sub(missingTimes[i-1]) == time.Minute {
 			gapEnd = missingTimes[i]
 			count++
 		} else {
-			// Gap ended, create a DataGap
+			// 缺口结束，创建一个DataGap
 			gaps = append(gaps, &DataGap{
 				Symbol:    symbol,
 				StartTime: gapStart,
 				EndTime:   gapEnd,
 				Missing:   count,
 			})
-			// Start new gap
+			// 开始新的缺口
 			gapStart = missingTimes[i]
 			gapEnd = missingTimes[i]
 			count = 1
 		}
 	}
 
-	// Add the last gap
+	// 添加最后一个缺口
 	gaps = append(gaps, &DataGap{
 		Symbol:    symbol,
 		StartTime: gapStart,
@@ -525,12 +525,12 @@ func (s *ClickHouseStorage) DetectDataGaps(symbol string, startTime, endTime tim
 	return gaps, nil
 }
 
-// GetDataGapsForAllSymbols detects data gaps for all symbols in the last 24 hours
+// GetDataGapsForAllSymbols 检测过去24小时内所有交易对的数据缺口
 func (s *ClickHouseStorage) GetDataGapsForAllSymbols() (map[string][]*DataGap, error) {
 	ctx := context.Background()
 	result := make(map[string][]*DataGap)
 
-	// Get all symbols
+	// 获取所有交易对
 	symbolQuery := fmt.Sprintf("SELECT DISTINCT symbol FROM %s.%s WHERE created_at >= now() - INTERVAL 24 HOUR", 
 		s.config.Database.Database, s.config.Database.Table)
 	
@@ -549,7 +549,7 @@ func (s *ClickHouseStorage) GetDataGapsForAllSymbols() (map[string][]*DataGap, e
 		symbols = append(symbols, symbol)
 	}
 
-	// Check gaps for each symbol in the last 24 hours
+	// 检查过去24小时内每个交易对的缺口
 	endTime := time.Now()
 	startTime := endTime.Add(-24 * time.Hour)
 
@@ -567,7 +567,7 @@ func (s *ClickHouseStorage) GetDataGapsForAllSymbols() (map[string][]*DataGap, e
 	return result, nil
 }
 
-// GetAllSymbols returns all unique symbols in the database
+// GetAllSymbols 返回数据库中所有唯一的交易对
 func (s *ClickHouseStorage) GetAllSymbols() ([]string, error) {
 	ctx := context.Background()
 	query := fmt.Sprintf("SELECT DISTINCT symbol FROM %s.%s ORDER BY symbol", 

@@ -35,14 +35,14 @@ var (
 func main() {
 	flag.Parse()
 
-	// Initialize logger
+	// 初始化日志器
 	logger := logrus.New()
 	logger.SetFormatter(&logrus.TextFormatter{
 		FullTimestamp: true,
 		TimestampFormat: time.RFC3339,
 	})
 
-	// Set log level
+	// 设置日志级别
 	if level, err := logrus.ParseLevel(*logLevel); err == nil {
 		logger.SetLevel(level)
 	} else {
@@ -52,7 +52,7 @@ func main() {
 
 	logger.Infof("Starting Data4Trend Binance WebSocket Collector v%s (built: %s)", version, buildTime)
 
-	// Load configuration
+	// 加载配置
 	cfg, err := config.LoadConfig(*configPath)
 	if err != nil {
 		logger.Fatalf("Failed to load configuration: %v", err)
@@ -68,7 +68,7 @@ func main() {
 		logger.Info("Direct connection (no proxy)")
 	}
 
-	// Initialize symbol service and fetch symbols
+	// 初始化交易对服务并获取交易对
 	logger.Info("Initializing symbol service...")
 	symbolService := binance.NewSymbolService(cfg, logger)
 	symbols, err := symbolService.GetSymbolsWithRetry(3)
@@ -76,12 +76,12 @@ func main() {
 		logger.Fatalf("Failed to fetch symbols: %v", err)
 	}
 
-	// Update config with fetched symbols
+	// 用获取的交易对更新配置
 	cfg.Symbols = symbols
 	logger.Infof("Monitoring %d symbols with %s interval", len(cfg.Symbols), cfg.Interval)
 	logger.Debugf("Symbols: %v", cfg.Symbols)
 
-	// Initialize storage
+	// 初始化存储
 	logger.Info("Initializing ClickHouse storage...")
 	storage, err := storage.NewClickHouseStorage(cfg, logger)
 	if err != nil {
@@ -90,7 +90,7 @@ func main() {
 	defer storage.Close()
 	logger.Info("ClickHouse storage initialized successfully")
 
-	// Initialize Kafka producer
+	// 初始化Kafka生产者
 	logger.Info("Initializing Kafka producer...")
 	kafkaProducer, err := kafka.NewProducer(cfg, logger)
 	if err != nil {
@@ -98,7 +98,7 @@ func main() {
 	}
 	defer kafkaProducer.Close()
 
-	// Initialize batch writer
+	// 初始化批量写入器
 	logger.Info("Initializing batch writer...")
 	batchWriter, err := batchwriter.NewBatchWriter(cfg, storage, logger)
 	if err != nil {
@@ -106,45 +106,45 @@ func main() {
 	}
 	batchWriter.Start()
 
-	// Initialize batch message handler
+	// 初始化批量消息处理器
 	batchHandler := batchwriter.NewBatchMessageHandler(batchWriter, logger)
 
-	// Initialize Kafka consumer
+	// 初始化Kafka消费者
 	logger.Info("Initializing Kafka consumer...")
 	kafkaConsumer, err := kafka.NewConsumer(cfg, logger, batchHandler)
 	if err != nil {
 		logger.Fatalf("Failed to initialize Kafka consumer: %v", err)
 	}
 
-	// Initialize WebSocket client
+	// 初始化WebSocket客户端
 	logger.Info("Initializing WebSocket client...")
 	websocketClient := websocket.NewClient(cfg, kafkaProducer, logger)
 
-	// Initialize monitoring
+	// 初始化监控系统
 	logger.Info("Initializing monitoring system...")
 	monitor := monitoring.NewMonitor(storage, websocketClient, logger)
 	monitor.LogSystemInfo()
 	monitor.Start()
 
-	// Initialize backfill service
+	// 初始化回补服务
 	logger.Info("Initializing backfill service...")
 	backfillService := backfill.NewBackfillService(cfg, storage, logger)
 
-	// Initialize data integrity service
+	// 初始化数据完整性服务
 	logger.Info("Initializing data integrity service...")
 	integrityService := integrity.NewDataIntegrityService(cfg, storage, backfillService, logger)
 	integrityService.Start()
 
-	// Initialize data validation
+	// 初始化数据验证
 	logger.Info("Initializing data validation system...")
 	validator := validation.NewDataValidator(storage, cfg, logger)
 	validator.Start()
 
-	// Initialize API server
+	// 初始化API服务器
 	logger.Info("Initializing API server...")
 	apiServer := api.NewServer(cfg, storage, websocketClient, integrityService, validator, logger)
 
-	// Setup graceful shutdown
+	// 设置优雅关闭
 	_, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

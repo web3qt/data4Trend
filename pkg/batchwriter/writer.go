@@ -13,7 +13,7 @@ import (
 	"data4trend/pkg/storage"
 )
 
-// BatchWriter handles batch writing of kline data to ClickHouse
+// BatchWriter 处理K线数据到ClickHouse的批量写入
 type BatchWriter struct {
 	config    *config.Config
 	logger    *logrus.Logger
@@ -28,7 +28,7 @@ type BatchWriter struct {
 	timer     *time.Timer
 }
 
-// WriterStats tracks batch writer statistics
+// WriterStats 跟踪批量写入器统计信息
 type WriterStats struct {
 	BatchesWritten   int64     `json:"batches_written"`
 	RecordsWritten   int64     `json:"records_written"`
@@ -38,7 +38,7 @@ type WriterStats struct {
 	mutex            sync.RWMutex
 }
 
-// NewBatchWriter creates a new batch writer
+// NewBatchWriter 创建新的批量写入器
 func NewBatchWriter(cfg *config.Config, storage *storage.ClickHouseStorage, logger *logrus.Logger) (*BatchWriter, error) {
 	timeout, err := time.ParseDuration(cfg.BatchWriter.BatchTimeout)
 	if err != nil {

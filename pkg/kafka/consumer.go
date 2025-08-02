@@ -14,7 +14,7 @@ import (
 	"data4trend/pkg/config"
 )
 
-// Consumer represents a Kafka consumer for kline data
+// Consumer 代表用于K线数据的Kafka消费者
 type Consumer struct {
 	config       *config.Config
 	logger       *logrus.Logger
@@ -28,39 +28,39 @@ type Consumer struct {
 	messageHandler MessageHandler
 }
 
-// ConsumerStats tracks consumer statistics
+// ConsumerStats 跟踪消费者统计信息
 type ConsumerStats struct {
 	MessagesReceived int64     `json:"messages_received"`
 	MessagesErrors   int64     `json:"messages_errors"`
 	LastReceivedTime time.Time `json:"last_received_time"`
 }
 
-// MessageHandler defines the interface for handling consumed messages
+// MessageHandler 定义处理消费消息的接口
 type MessageHandler interface {
 	HandleMessage(klineData *types.KlineData) error
 }
 
-// NewConsumer creates a new Kafka consumer
+// NewConsumer 创建一个新的Kafka消费者
 func NewConsumer(cfg *config.Config, logger *logrus.Logger, handler MessageHandler) (*Consumer, error) {
 	config := sarama.NewConfig()
 	config.Consumer.Group.Rebalance.Strategy = sarama.BalanceStrategyRoundRobin
 	config.Consumer.Offsets.Initial = sarama.OffsetNewest
 
-	// Parse session timeout
+	// 解析会话超时时间
 	sessionTimeout, err := time.ParseDuration(cfg.Kafka.Consumer.SessionTimeout)
 	if err != nil {
 		sessionTimeout = 30 * time.Second
 	}
 	config.Consumer.Group.Session.Timeout = sessionTimeout
 
-	// Parse heartbeat interval
+	// 解析心跳间隔
 	heartbeatInterval, err := time.ParseDuration(cfg.Kafka.Consumer.HeartbeatInterval)
 	if err != nil {
 		heartbeatInterval = 3 * time.Second
 	}
 	config.Consumer.Group.Heartbeat.Interval = heartbeatInterval
 
-	// Set auto offset reset
+	// 设置自动偏移重置
 	if cfg.Kafka.Consumer.AutoOffsetReset == "earliest" {
 		config.Consumer.Offsets.Initial = sarama.OffsetOldest
 	}
@@ -87,11 +87,11 @@ func NewConsumer(cfg *config.Config, logger *logrus.Logger, handler MessageHandl
 	return c, nil
 }
 
-// Start starts the consumer
+// Start 启动消费者
 func (c *Consumer) Start() error {
 	c.logger.Infof("Starting Kafka consumer group: %s", c.groupID)
 
-	// Start consuming in a goroutine
+	// 在协程中开始消费
 	go func() {
 		for {
 			select {
@@ -107,7 +107,7 @@ func (c *Consumer) Start() error {
 		}
 	}()
 
-	// Handle consumer errors
+	// 处理消费者错误
 	go func() {
 		for err := range c.consumerGroup.Errors() {
 			c.stats.MessagesErrors++
@@ -119,19 +119,19 @@ func (c *Consumer) Start() error {
 	return nil
 }
 
-// Setup is run at the beginning of a new session, before ConsumeClaim
+// Setup 在新会话开始时运行，在ConsumeClaim之前
 func (c *Consumer) Setup(sarama.ConsumerGroupSession) error {
 	c.logger.Info("Kafka consumer session setup")
 	return nil
 }
 
-// Cleanup is run at the end of a session, once all ConsumeClaim goroutines have exited
+// Cleanup 在会话结束时运行，一旦所有ConsumeClaim协程退出
 func (c *Consumer) Cleanup(sarama.ConsumerGroupSession) error {
 	c.logger.Info("Kafka consumer session cleanup")
 	return nil
 }
 
-// ConsumeClaim must start a consumer loop of ConsumerGroupClaim's Messages()
+// ConsumeClaim 必须启动ConsumerGroupClaim消息的消费者循环
 func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for {
 		select {
@@ -155,7 +155,7 @@ func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim saram
 	}
 }
 
-// processMessage processes a Kafka message
+// processMessage 处理Kafka消息
 func (c *Consumer) processMessage(message *sarama.ConsumerMessage) error {
 	var klineData types.KlineData
 	if err := json.Unmarshal(message.Value, &klineData); err != nil {
@@ -164,7 +164,7 @@ func (c *Consumer) processMessage(message *sarama.ConsumerMessage) error {
 
 	c.logger.Debugf("Received kline data from Kafka: %s", klineData.Symbol)
 
-	// Handle the message using the provided handler
+	// 使用提供的处理器处理消息
 	if err := c.messageHandler.HandleMessage(&klineData); err != nil {
 		return fmt.Errorf("failed to handle message: %w", err)
 	}
@@ -172,14 +172,14 @@ func (c *Consumer) processMessage(message *sarama.ConsumerMessage) error {
 	return nil
 }
 
-// GetStats returns consumer statistics
+// GetStats 返回消费者统计信息
 func (c *Consumer) GetStats() *ConsumerStats {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 	return c.stats
 }
 
-// Stop stops the consumer
+// Stop 停止消费者
 func (c *Consumer) Stop() error {
 	c.logger.Info("Stopping Kafka consumer...")
 	c.cancel()

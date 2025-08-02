@@ -14,12 +14,12 @@ import (
 	"data4trend/pkg/config"
 )
 
-// ExchangeInfo represents Binance exchange info response
+// ExchangeInfo 代表Binance交易所信息响应
 type ExchangeInfo struct {
 	Symbols []SymbolInfo `json:"symbols"`
 }
 
-// SymbolInfo represents symbol information from Binance
+// SymbolInfo 代表来自Binance的交易对信息
 type SymbolInfo struct {
 	Symbol     string `json:"symbol"`
 	BaseAsset  string `json:"baseAsset"`
@@ -28,20 +28,20 @@ type SymbolInfo struct {
 	IsSpotTradingAllowed bool `json:"isSpotTradingAllowed"`
 }
 
-// SymbolService handles dynamic symbol fetching from Binance
+// SymbolService 处理从Binance动态获取交易对
 type SymbolService struct {
 	config *config.Config
 	logger *logrus.Logger
 	client *http.Client
 }
 
-// NewSymbolService creates a new symbol service
+// NewSymbolService 创建一个新的交易对服务
 func NewSymbolService(cfg *config.Config, logger *logrus.Logger) *SymbolService {
 	client := &http.Client{
 		Timeout: 30 * time.Second,
 	}
 
-	// Set proxy if configured
+	// 如果配置了代理则设置代理
 	if cfg.Proxy.Enabled {
 		proxyURL, err := url.Parse(cfg.GetProxyURL())
 		if err == nil {
@@ -59,15 +59,15 @@ func NewSymbolService(cfg *config.Config, logger *logrus.Logger) *SymbolService 
 	}
 }
 
-// FetchSymbols fetches all symbols from Binance API
+// FetchSymbols 从Binance API获取所有交易对
 func (s *SymbolService) FetchSymbols() ([]string, error) {
-	// If auto fetch is disabled, use configured symbols
+	// 如果禁用自动获取，使用配置的交易对
 	if !s.config.WebSocket.AutoFetchSymbols {
 		if len(s.config.Symbols) > 0 {
 			s.logger.Info("Using configured symbols list")
 			return s.config.Symbols, nil
 		}
-		// Fallback to default symbols if none configured
+		// 如果没有配置，回退到默认交易对
 		defaultSymbols := []string{"BTCUSDT", "ETHUSDT", "BNBUSDT"}
 		s.logger.Warn("No symbols configured, using default symbols")
 		return defaultSymbols, nil
@@ -75,7 +75,7 @@ func (s *SymbolService) FetchSymbols() ([]string, error) {
 
 	s.logger.Info("Fetching symbols from Binance API...")
 
-	// Fetch exchange info from Binance
+	// 从Binance获取交易所信息
 	apiURL := "https://api.binance.com/api/v3/exchangeInfo"
 	resp, err := s.client.Get(apiURL)
 	if err != nil {
@@ -98,25 +98,25 @@ func (s *SymbolService) FetchSymbols() ([]string, error) {
 		return nil, fmt.Errorf("failed to parse exchange info: %w", err)
 	}
 
-	// Filter symbols based on configuration
+	// 根据配置过滤交易对
 	symbols := s.filterSymbols(exchangeInfo.Symbols)
 
 	s.logger.Infof("Fetched %d symbols from Binance API", len(symbols))
 	return symbols, nil
 }
 
-// filterSymbols filters symbols based on configuration
+// filterSymbols 根据配置过滤交易对
 func (s *SymbolService) filterSymbols(symbolInfos []SymbolInfo) []string {
 	var filteredSymbols []string
 	filter := s.config.WebSocket.SymbolFilter
 
 	for _, symbolInfo := range symbolInfos {
-		// Check if symbol is active and spot trading is allowed
+		// 检查交易对是否活跃且允许现货交易
 		if symbolInfo.Status != "TRADING" || !symbolInfo.IsSpotTradingAllowed {
 			continue
 		}
 
-		// Filter by quote asset (default: USDT)
+		// 按计价资产过滤（默认：USDT）
 		quoteAsset := filter.QuoteAsset
 		if quoteAsset == "" {
 			quoteAsset = "USDT"
@@ -125,7 +125,7 @@ func (s *SymbolService) filterSymbols(symbolInfos []SymbolInfo) []string {
 			continue
 		}
 
-		// Exclude symbols matching patterns
+		// 排除匹配模式的交易对
 		if s.shouldExcludeSymbol(symbolInfo.Symbol, filter.ExcludePatterns) {
 			continue
 		}
@@ -136,7 +136,7 @@ func (s *SymbolService) filterSymbols(symbolInfos []SymbolInfo) []string {
 	return filteredSymbols
 }
 
-// shouldExcludeSymbol checks if a symbol should be excluded based on patterns
+// shouldExcludeSymbol 检查是否应根据模式排除交易对
 func (s *SymbolService) shouldExcludeSymbol(symbol string, excludePatterns []string) bool {
 	for _, pattern := range excludePatterns {
 		if strings.Contains(symbol, pattern) {
@@ -146,7 +146,7 @@ func (s *SymbolService) shouldExcludeSymbol(symbol string, excludePatterns []str
 	return false
 }
 
-// GetSymbolsWithRetry fetches symbols with retry logic
+// GetSymbolsWithRetry 使用重试逻辑获取交易对
 func (s *SymbolService) GetSymbolsWithRetry(maxRetries int) ([]string, error) {
 	var lastErr error
 
@@ -160,7 +160,7 @@ func (s *SymbolService) GetSymbolsWithRetry(maxRetries int) ([]string, error) {
 		s.logger.Warnf("Failed to fetch symbols (attempt %d/%d): %v", attempt, maxRetries, err)
 
 		if attempt < maxRetries {
-			// Wait before retry
+			// 重试前等待
 			waitTime := time.Duration(attempt) * 5 * time.Second
 			s.logger.Infof("Retrying in %v...", waitTime)
 			time.Sleep(waitTime)

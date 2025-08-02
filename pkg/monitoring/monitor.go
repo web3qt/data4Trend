@@ -11,7 +11,7 @@ import (
 	"data4trend/pkg/websocket"
 )
 
-// Monitor represents the system monitoring component
+// Monitor 代表系统监控组件
 type Monitor struct {
 	storage   *storage.ClickHouseStorage
 	websocket *websocket.Client
@@ -21,7 +21,7 @@ type Monitor struct {
 	stats     *types.MonitoringStats
 }
 
-// NewMonitor creates a new monitoring instance
+// NewMonitor 创建一个新的监控实例
 func NewMonitor(storage *storage.ClickHouseStorage, ws *websocket.Client, logger *logrus.Logger) *Monitor {
 	return &Monitor{
 		storage:   storage,
@@ -42,19 +42,19 @@ func NewMonitor(storage *storage.ClickHouseStorage, ws *websocket.Client, logger
 	}
 }
 
-// Start starts the monitoring system
+// Start 启动监控系统
 func (m *Monitor) Start() {
 	m.logger.Info("Starting monitoring system...")
 
-	// Start periodic monitoring
+	// 启动周期性监控
 	go m.periodicMonitoring()
 
 	m.logger.Info("Monitoring system started")
 }
 
-// periodicMonitoring performs periodic system monitoring
+// periodicMonitoring 执行周期性系统监控
 func (m *Monitor) periodicMonitoring() {
-	ticker := time.NewTicker(60 * time.Second) // Report every minute
+	ticker := time.NewTicker(60 * time.Second) // 每分钟报告一次
 	defer ticker.Stop()
 
 	for {
@@ -66,15 +66,15 @@ func (m *Monitor) periodicMonitoring() {
 	}
 }
 
-// updateStats updates monitoring statistics
+// updateStats 更新监控统计信息
 func (m *Monitor) updateStats() {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	// Update uptime
+	// 更新运行时间
 	m.stats.Uptime = time.Since(m.startTime)
 
-	// Get WebSocket stats
+	// 获取WebSocket统计信息
 	if m.websocket != nil {
 		wsStats := m.websocket.GetStats()
 		m.stats.MessagesTotal = wsStats.MessagesTotal
@@ -82,57 +82,57 @@ func (m *Monitor) updateStats() {
 		m.stats.ActiveStreams = wsStats.Connections
 		m.stats.LastMessageTime = wsStats.LastMessageTime
 
-		// Calculate messages per second
+		// 计算每秒消息数
 		if m.stats.Uptime.Seconds() > 0 {
 			m.stats.MessagesPerSec = float64(m.stats.MessagesTotal) / m.stats.Uptime.Seconds()
 		}
 
-		// Calculate error rate
+		// 计算错误率
 		if m.stats.MessagesTotal > 0 {
 			m.stats.ErrorRate = float64(m.stats.ErrorsTotal) / float64(m.stats.MessagesTotal) * 100
 		}
 	}
 
-	// Determine health status and issues
+	// 确定健康状态和问题
 	m.updateHealthStatus()
 }
 
-// updateHealthStatus updates the health status and identifies issues
+// updateHealthStatus 更新健康状态并识别问题
 func (m *Monitor) updateHealthStatus() {
 	issues := []string{}
 
-	// Check if we're receiving data
+	// 检查是否正在接收数据
 	if time.Since(m.stats.LastMessageTime) > 5*time.Minute {
 		issues = append(issues, "No data received in the last 5 minutes")
 	} else if time.Since(m.stats.LastMessageTime) > 2*time.Minute {
 		issues = append(issues, "No data received in the last 2 minutes")
 	}
 
-	// Check if we have no data at all
+	// 检查是否完全没有数据
 	if m.stats.MessagesTotal == 0 && m.stats.Uptime > 2*time.Minute {
 		issues = append(issues, "No data received yet")
 	}
 
-	// Check error rate
+	// 检查错误率
 	if m.stats.ErrorRate > 10 {
 		issues = append(issues, "High error rate (>10%)")
 	} else if m.stats.ErrorRate > 5 {
 		issues = append(issues, "Elevated error rate (>5%)")
 	}
 
-	// Check active streams
+	// 检查活跃流
 	if m.stats.ActiveStreams == 0 {
 		issues = append(issues, "No active WebSocket connections")
 	}
 
-	// Check database connectivity
+	// 检查数据库连接
 	if m.storage != nil {
 		if err := m.storage.TestConnection(); err != nil {
 			issues = append(issues, "Database connection failed")
 		}
 	}
 
-	// Determine overall health status
+	// 确定整体健康状态
 	if len(issues) == 0 {
 		m.stats.HealthStatus = "healthy"
 	} else if m.containsCriticalIssues(issues) {
@@ -144,7 +144,7 @@ func (m *Monitor) updateHealthStatus() {
 	m.stats.Issues = issues
 }
 
-// containsCriticalIssues checks if there are critical issues
+// containsCriticalIssues 检查是否存在严重问题
 func (m *Monitor) containsCriticalIssues(issues []string) bool {
 	for _, issue := range issues {
 		if issue == "Database connection failed" ||
@@ -155,10 +155,10 @@ func (m *Monitor) containsCriticalIssues(issues []string) bool {
 	return false
 }
 
-// logReport logs the monitoring report
+// logReport 记录监控报告
 func (m *Monitor) logReport() {
 	m.mutex.RLock()
-	stats := *m.stats // Copy stats
+	stats := *m.stats // 复制统计信息
 	m.mutex.RUnlock()
 
 	m.logger.Info("=== System Monitoring Report ===")
@@ -174,7 +174,7 @@ func (m *Monitor) logReport() {
 
 	m.logger.Infof("Health: %s, Issues: %v", stats.HealthStatus, stats.Issues)
 
-	// Log database stats if available
+	// 如果可用，记录数据库统计信息
 	if m.storage != nil {
 		if dbStats, err := m.storage.GetStats(); err == nil {
 			m.logger.Infof("Database: %v records, %v symbols",
@@ -187,36 +187,36 @@ func (m *Monitor) logReport() {
 	}
 }
 
-// GetStats returns current monitoring statistics
+// GetStats 返回当前监控统计信息
 func (m *Monitor) GetStats() *types.MonitoringStats {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
-	// Return a copy of the stats
+	// 返回统计信息的副本
 	stats := *m.stats
 	return &stats
 }
 
-// GetHealthStatus returns the current health status
+// GetHealthStatus 返回当前健康状态
 func (m *Monitor) GetHealthStatus() string {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	return m.stats.HealthStatus
 }
 
-// GetIssues returns current issues
+// GetIssues 返回当前问题
 func (m *Monitor) GetIssues() []string {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
-	return append([]string{}, m.stats.Issues...) // Return a copy
+	return append([]string{}, m.stats.Issues...) // 返回副本
 }
 
-// IsHealthy returns true if the system is healthy
+// IsHealthy 如果系统健康则返回true
 func (m *Monitor) IsHealthy() bool {
 	return m.GetHealthStatus() == "healthy"
 }
 
-// LogSystemInfo logs system information
+// LogSystemInfo 记录系统信息
 func (m *Monitor) LogSystemInfo() {
 	m.logger.Info("=== System Information ===")
 	m.logger.Infof("Start time: %v", m.startTime.Format(time.RFC3339))

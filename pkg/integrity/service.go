@@ -13,7 +13,7 @@ import (
 	"data4trend/pkg/storage"
 )
 
-// DataIntegrityService ensures data completeness and continuity
+// DataIntegrityService 确保数据完整性和连续性
 type DataIntegrityService struct {
 	config      *config.Config
 	storage     *storage.ClickHouseStorage
@@ -27,7 +27,7 @@ type DataIntegrityService struct {
 	stats       *IntegrityStats
 }
 
-// IntegrityStats tracks integrity service statistics
+// IntegrityStats 跟踪完整性服务统计信息
 type IntegrityStats struct {
 	LastCheckTime     time.Time `json:"last_check_time"`
 	TotalChecks       int64     `json:"total_checks"`
@@ -41,7 +41,7 @@ type IntegrityStats struct {
 	mutex             sync.RWMutex
 }
 
-// NewDataIntegrityService creates a new data integrity service
+// NewDataIntegrityService 创建一个新的数据完整性服务
 func NewDataIntegrityService(cfg *config.Config, storage *storage.ClickHouseStorage, backfill *backfill.BackfillService, logger *logrus.Logger) *DataIntegrityService {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &DataIntegrityService{
@@ -59,7 +59,7 @@ func NewDataIntegrityService(cfg *config.Config, storage *storage.ClickHouseStor
 	}
 }
 
-// Start starts the data integrity service
+// Start 启动数据完整性服务
 func (dis *DataIntegrityService) Start() {
 	dis.mutex.Lock()
 	defer dis.mutex.Unlock()
@@ -72,17 +72,17 @@ func (dis *DataIntegrityService) Start() {
 	dis.isRunning = true
 	dis.logger.Info("Starting data integrity service...")
 	
-	// Run initial integrity check
+	// 运行初始完整性检查
 	go dis.runInitialIntegrityCheck()
 	
-	// Start periodic integrity checks (every 10 minutes)
+	// 启动定期完整性检查（每10分钟）
 	go dis.periodicIntegrityCheck()
 	
-	// Start continuous gap monitoring (every 2 minutes)
+	// 启动连续缺口监控（每2分钟）
 	go dis.continuousGapMonitoring()
 }
 
-// Stop stops the data integrity service
+// Stop 停止数据完整性服务
 func (dis *DataIntegrityService) Stop() {
 	dis.mutex.Lock()
 	defer dis.mutex.Unlock()
@@ -96,23 +96,23 @@ func (dis *DataIntegrityService) Stop() {
 	dis.isRunning = false
 }
 
-// runInitialIntegrityCheck performs comprehensive initial data integrity check
+// runInitialIntegrityCheck 执行全面的初始数据完整性检查
 func (dis *DataIntegrityService) runInitialIntegrityCheck() {
 	dis.logger.Info("Running initial data integrity check...")
 	
-	// Ensure 7 days of historical data for all symbols
+	// 确保所有交易对有7天的历史数据
 	endTime := time.Now().Truncate(time.Minute)
 	startTime := endTime.Add(-7 * 24 * time.Hour)
 	
 	dis.ensureHistoricalDataCoverage(startTime, endTime)
 	
-	// Update statistics
+	// 更新统计信息
 	dis.updateIntegrityStats()
 	
 	dis.logger.Info("Initial data integrity check completed")
 }
 
-// periodicIntegrityCheck runs periodic comprehensive integrity checks
+// periodicIntegrityCheck 运行定期全面完整性检查
 func (dis *DataIntegrityService) periodicIntegrityCheck() {
 	ticker := time.NewTicker(10 * time.Minute)
 	defer ticker.Stop()
@@ -127,7 +127,7 @@ func (dis *DataIntegrityService) periodicIntegrityCheck() {
 	}
 }
 
-// continuousGapMonitoring monitors for recent data gaps
+// continuousGapMonitoring 监控最近的数据缺口
 func (dis *DataIntegrityService) continuousGapMonitoring() {
 	ticker := time.NewTicker(2 * time.Minute)
 	defer ticker.Stop()
@@ -142,21 +142,21 @@ func (dis *DataIntegrityService) continuousGapMonitoring() {
 	}
 }
 
-// runPeriodicCheck performs periodic integrity check
+// runPeriodicCheck 执行定期完整性检查
 func (dis *DataIntegrityService) runPeriodicCheck() {
 	dis.logger.Debug("Running periodic data integrity check...")
 	
-	// Check last 24 hours for gaps
+	// 检查过去24小时的缺口
 	endTime := time.Now().Truncate(time.Minute)
 	startTime := endTime.Add(-24 * time.Hour)
 	
-	// Detect and fix gaps
+	// 检测并修复缺口
 	totalGaps := dis.detectAndFixGaps(startTime, endTime)
 	
-	// Ensure 7-day data retention
+	// 确保7天数据保留
 	dis.ensureDataRetention()
 	
-	// Update statistics
+	// 更新统计信息
 	dis.updateIntegrityStats()
 	
 	dis.stats.mutex.Lock()
@@ -171,7 +171,7 @@ func (dis *DataIntegrityService) runPeriodicCheck() {
 	}
 }
 
-// checkRecentGaps checks for gaps in the last 30 minutes
+// checkRecentGaps 检查过去30分钟的缺口
 func (dis *DataIntegrityService) checkRecentGaps() {
 	endTime := time.Now().Truncate(time.Minute)
 	startTime := endTime.Add(-30 * time.Minute)
@@ -182,14 +182,14 @@ func (dis *DataIntegrityService) checkRecentGaps() {
 	}
 }
 
-// ensureHistoricalDataCoverage ensures complete historical data coverage
+// ensureHistoricalDataCoverage 确保完整的历史数据覆盖
 func (dis *DataIntegrityService) ensureHistoricalDataCoverage(startTime, endTime time.Time) {
 	dis.logger.Infof("Ensuring historical data coverage from %s to %s", 
 		startTime.Format("2006-01-02 15:04:05"), endTime.Format("2006-01-02 15:04:05"))
 	
 	totalGapsFixed := 0
 	
-	// Check each symbol
+	// 检查每个交易对
 	for _, symbol := range dis.config.Symbols {
 		select {
 		case <-dis.ctx.Done():
@@ -197,7 +197,7 @@ func (dis *DataIntegrityService) ensureHistoricalDataCoverage(startTime, endTime
 		default:
 		}
 		
-		// Detect gaps for this symbol
+		// 检测此交易对的缺口
 		gaps, err := dis.storage.DetectDataGaps(symbol, startTime, endTime)
 		if err != nil {
 			dis.logger.Errorf("Failed to detect gaps for %s: %v", symbol, err)
@@ -211,7 +211,7 @@ func (dis *DataIntegrityService) ensureHistoricalDataCoverage(startTime, endTime
 		dis.logger.Infof("Symbol %s: found %d gaps, total missing: %d minutes", 
 			symbol, len(gaps), dis.calculateTotalMissingMinutes(gaps))
 		
-		// Fix gaps for this symbol
+		// 修复此交易对的缺口
 		for _, gap := range gaps {
 			select {
 			case <-dis.ctx.Done():
@@ -237,20 +237,20 @@ func (dis *DataIntegrityService) ensureHistoricalDataCoverage(startTime, endTime
 					symbol, result.Inserted)
 			}
 			
-			// Rate limiting to avoid overwhelming Binance API
+			// 限制速率以避免压垮Binance API
 			time.Sleep(200 * time.Millisecond)
 		}
 		
-		// Pause between symbols
+		// 交易对之间暂停
 		time.Sleep(100 * time.Millisecond)
 	}
 	
 	dis.logger.Infof("Historical data coverage check completed: fixed %d gaps", totalGapsFixed)
 }
 
-// detectAndFixGaps detects and fixes data gaps in the specified time range
+// detectAndFixGaps 检测并修复指定时间范围内的数据缺口
 func (dis *DataIntegrityService) detectAndFixGaps(startTime, endTime time.Time) int {
-	// Get all gaps
+	// 获取所有缺口
 	allGaps, err := dis.storage.GetDataGapsForAllSymbols()
 	if err != nil {
 		dis.logger.Errorf("Failed to get data gaps: %v", err)
@@ -260,7 +260,7 @@ func (dis *DataIntegrityService) detectAndFixGaps(startTime, endTime time.Time) 
 	totalGapsFixed := 0
 	totalGapsDetected := 0
 	
-	// Process gaps for each symbol
+	// 处理每个交易对的缺口
 	for symbol, gaps := range allGaps {
 		select {
 		case <-dis.ctx.Done():
@@ -268,7 +268,7 @@ func (dis *DataIntegrityService) detectAndFixGaps(startTime, endTime time.Time) 
 		default:
 		}
 		
-		// Filter gaps within the specified time range
+		// 过滤指定时间范围内的缺口
 		relevantGaps := dis.filterGapsByTimeRange(gaps, startTime, endTime)
 		if len(relevantGaps) == 0 {
 			continue
@@ -277,7 +277,7 @@ func (dis *DataIntegrityService) detectAndFixGaps(startTime, endTime time.Time) 
 		totalGapsDetected += len(relevantGaps)
 		dis.logger.Debugf("Symbol %s: found %d gaps in time range", symbol, len(relevantGaps))
 		
-		// Fix each gap
+		// 修复每个缺口
 		for _, gap := range relevantGaps {
 			result, err := dis.backfill.BackfillGap(gap)
 			if err != nil {
@@ -295,7 +295,7 @@ func (dis *DataIntegrityService) detectAndFixGaps(startTime, endTime time.Time) 
 				dis.stats.mutex.Unlock()
 			}
 			
-			// Rate limiting
+			// 限制速率
 			time.Sleep(150 * time.Millisecond)
 		}
 	}
@@ -307,25 +307,25 @@ func (dis *DataIntegrityService) detectAndFixGaps(startTime, endTime time.Time) 
 	return totalGapsFixed
 }
 
-// ensureDataRetention ensures 7-day data retention
+// ensureDataRetention 确保7天数据保留
 func (dis *DataIntegrityService) ensureDataRetention() {
-	// Check if we have data older than 7 days that needs to be maintained
-	// and ensure recent data is complete
+	// 检查是否有超过7天需要维护的数据
+	// 并确保最近的数据完整
 	endTime := time.Now().Truncate(time.Minute)
 	startTime := endTime.Add(-7 * 24 * time.Hour)
 	
-	// Quick check for any major gaps in the 7-day window
+	// 快速检查7天窗口内的主要缺口
 	gapsFixed := dis.detectAndFixGaps(startTime, endTime)
 	if gapsFixed > 0 {
 		dis.logger.Infof("Data retention check: fixed %d gaps in 7-day window", gapsFixed)
 	}
 }
 
-// filterGapsByTimeRange filters gaps that fall within the specified time range
+// filterGapsByTimeRange 过滤落在指定时间范围内的缺口
 func (dis *DataIntegrityService) filterGapsByTimeRange(gaps []*storage.DataGap, startTime, endTime time.Time) []*storage.DataGap {
 	var filtered []*storage.DataGap
 	for _, gap := range gaps {
-		// Check if gap overlaps with the time range
+		// 检查缺口是否与时间范围重叠
 		if gap.EndTime.After(startTime) && gap.StartTime.Before(endTime) {
 			filtered = append(filtered, gap)
 		}
@@ -333,7 +333,7 @@ func (dis *DataIntegrityService) filterGapsByTimeRange(gaps []*storage.DataGap, 
 	return filtered
 }
 
-// calculateTotalMissingMinutes calculates total missing minutes from gaps
+// calculateTotalMissingMinutes 计算缺口的总缺失分钟数
 func (dis *DataIntegrityService) calculateTotalMissingMinutes(gaps []*storage.DataGap) int {
 	total := 0
 	for _, gap := range gaps {
@@ -342,27 +342,27 @@ func (dis *DataIntegrityService) calculateTotalMissingMinutes(gaps []*storage.Da
 	return total
 }
 
-// updateIntegrityStats updates integrity statistics
+// updateIntegrityStats 更新完整性统计信息
 func (dis *DataIntegrityService) updateIntegrityStats() {
-	// Calculate data coverage and continuity metrics
-	// This is a simplified implementation
+	// 计算数据覆盖率和连续性指标
+	// 这是一个简化的实现
 	dis.stats.mutex.Lock()
 	defer dis.stats.mutex.Unlock()
 	
-	// Get basic stats from storage
+	// 从存储获取基本统计信息
 	stats, err := dis.storage.GetStats()
 	if err != nil {
 		dis.logger.Errorf("Failed to get storage stats: %v", err)
 		return
 	}
 	
-	// Update timestamps if available
+	// 如果可用，更新时间戳
 	if latestTime, ok := stats["latest_record_time"].(time.Time); ok {
 		dis.stats.NewestDataTime = latestTime
 	}
 	
-	// Calculate approximate data coverage (simplified)
-	// In a real implementation, this would be more sophisticated
+	// 计算大致的数据覆盖率（简化版）
+	// 在实际实现中，这会更加复杂
 	totalSymbols := len(dis.config.Symbols)
 	expectedRecords := totalSymbols * 7 * 24 * 60 // 7 days * 24 hours * 60 minutes
 	
@@ -375,16 +375,16 @@ func (dis *DataIntegrityService) updateIntegrityStats() {
 		}
 	}
 	
-	// Estimate continuous days (simplified)
-	dis.stats.ContinuousDays = 7 // Assume 7 days for now, would need more complex calculation
+	// 估算连续天数（简化版）
+	dis.stats.ContinuousDays = 7 // 现在假设7天，需要更复杂的计算
 }
 
-// GetStats returns current integrity statistics
+// GetStats 返回当前完整性统计信息
 func (dis *DataIntegrityService) GetStats() *IntegrityStats {
 	dis.stats.mutex.RLock()
 	defer dis.stats.mutex.RUnlock()
 	
-	// Return a copy to avoid race conditions
+	// 返回副本以避免竞态条件
 	return &IntegrityStats{
 		LastCheckTime:  dis.stats.LastCheckTime,
 		TotalChecks:    dis.stats.TotalChecks,
@@ -398,20 +398,20 @@ func (dis *DataIntegrityService) GetStats() *IntegrityStats {
 	}
 }
 
-// IsRunning returns whether the service is currently running
+// IsRunning 返回服务是否正在运行
 func (dis *DataIntegrityService) IsRunning() bool {
 	dis.mutex.RLock()
 	defer dis.mutex.RUnlock()
 	return dis.isRunning
 }
 
-// ForceIntegrityCheck forces an immediate integrity check
+// ForceIntegrityCheck 强制立即进行完整性检查
 func (dis *DataIntegrityService) ForceIntegrityCheck() {
 	dis.logger.Info("Force integrity check triggered")
 	go dis.runPeriodicCheck()
 }
 
-// BackfillSymbolRange backfills data for a specific symbol and time range
+// BackfillSymbolRange 为特定交易对和时间范围回补数据
 func (dis *DataIntegrityService) BackfillSymbolRange(symbol string, startTime, endTime time.Time) error {
 	dis.logger.Infof("Manual backfill requested for %s from %s to %s", 
 		symbol, startTime.Format("2006-01-02 15:04:05"), endTime.Format("2006-01-02 15:04:05"))

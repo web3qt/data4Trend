@@ -13,7 +13,7 @@ import (
 	"data4trend/pkg/storage"
 )
 
-// ValidatorService provides comprehensive data validation and backfill capabilities
+// ValidatorService 提供全面的数据验证和回补功能
 type ValidatorService struct {
 	config           *config.Config
 	validationConfig *ValidationConfig
@@ -29,7 +29,7 @@ type ValidatorService struct {
 	checkTicker      *time.Ticker
 }
 
-// ValidatorStats tracks validation service statistics
+// ValidatorStats 跟踪验证服务统计信息
 type ValidatorStats struct {
 	LastCheckTime        time.Time `json:"last_check_time"`
 	TotalChecks          int64     `json:"total_checks"`
@@ -46,7 +46,7 @@ type ValidatorStats struct {
 	mutex                sync.RWMutex
 }
 
-// ValidationConfig holds configuration for the validator service
+// ValidationConfig 保存验证器服务的配置
 type ValidationConfig struct {
 	CheckInterval     time.Duration
 	MaxGapDuration    time.Duration

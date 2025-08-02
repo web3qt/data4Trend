@@ -10,7 +10,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Config represents the application configuration
+// Config 代表应用程序配置
 type Config struct {
 	WebSocket    WebSocketConfig    `yaml:"websocket"`
 	Database     DatabaseConfig     `yaml:"database"`
@@ -23,7 +23,7 @@ type Config struct {
 	Interval     string             `yaml:"interval"`
 }
 
-// WebSocketConfig represents WebSocket configuration
+// WebSocketConfig 代表WebSocket配置
 type WebSocketConfig struct {
 	BaseURL           string       `yaml:"base_url"`
 	ReconnectInterval int          `yaml:"reconnect_interval"`
@@ -34,13 +34,13 @@ type WebSocketConfig struct {
 	SymbolFilter      SymbolFilter `yaml:"symbol_filter"`
 }
 
-// SymbolFilter represents symbol filtering configuration
+// SymbolFilter 代表交易对过滤配置
 type SymbolFilter struct {
 	QuoteAsset       string   `yaml:"quote_asset"`
 	ExcludePatterns  []string `yaml:"exclude_patterns"`
 }
 
-// DatabaseConfig represents database configuration
+// DatabaseConfig 代表数据库配置
 type DatabaseConfig struct {
 	Host     string `yaml:"host"`
 	Port     int    `yaml:"port"`
@@ -50,13 +50,13 @@ type DatabaseConfig struct {
 	Table    string `yaml:"table"`
 }
 
-// APIConfig represents API server configuration
+// APIConfig 代表API服务器配置
 type APIConfig struct {
 	Port int    `yaml:"port"`
 	Host string `yaml:"host"`
 }
 
-// ProxyConfig represents proxy configuration
+// ProxyConfig 代表代理配置
 type ProxyConfig struct {
 	Enabled bool   `yaml:"enabled"`
 	Type    string `yaml:"type"` // http, socks5
@@ -64,7 +64,7 @@ type ProxyConfig struct {
 	Port    int    `yaml:"port"`
 }
 
-// KafkaConfig represents Kafka configuration
+// KafkaConfig 代表Kafka配置
 type KafkaConfig struct {
 	Brokers  []string           `yaml:"brokers"`
 	Topic    string             `yaml:"topic"`
@@ -72,15 +72,18 @@ type KafkaConfig struct {
 	Consumer KafkaConsumerConfig `yaml:"consumer"`
 }
 
-// KafkaProducerConfig represents Kafka producer configuration
+// KafkaProducerConfig 代表Kafka生产者配置
 type KafkaProducerConfig struct {
 	BatchSize       int    `yaml:"batch_size"`
 	BatchTimeout    string `yaml:"batch_timeout"`
 	Compression     string `yaml:"compression"`
 	MaxMessageBytes int    `yaml:"max_message_bytes"`
+	ChannelBufferSize int  `yaml:"channel_buffer_size"`  // 通道缓冲区大小
+	FlushBytes      int    `yaml:"flush_bytes"`          // 刷新字节数
+	SendTimeout     string `yaml:"send_timeout"`         // 发送超时时间
 }
 
-// KafkaConsumerConfig represents Kafka consumer configuration
+// KafkaConsumerConfig 代表Kafka消费者配置
 type KafkaConsumerConfig struct {
 	GroupID           string `yaml:"group_id"`
 	AutoOffsetReset   string `yaml:"auto_offset_reset"`
@@ -88,7 +91,7 @@ type KafkaConsumerConfig struct {
 	HeartbeatInterval string `yaml:"heartbeat_interval"`
 }
 
-// BatchWriterConfig represents batch writer configuration
+// BatchWriterConfig 代表批量写入器配置
 type BatchWriterConfig struct {
 	BatchSize     int    `yaml:"batch_size"`
 	BatchTimeout  string `yaml:"batch_timeout"`
@@ -96,7 +99,7 @@ type BatchWriterConfig struct {
 	RetryInterval string `yaml:"retry_interval"`
 }
 
-// ValidatorConfig represents validator service configuration
+// ValidatorConfig 代表验证器服务配置
 type ValidatorConfig struct {
 	Enabled           bool   `yaml:"enabled"`
 	CheckInterval     string `yaml:"check_interval"`
@@ -106,7 +109,7 @@ type ValidatorConfig struct {
 	ConcurrentWorkers int    `yaml:"concurrent_workers"`
 }
 
-// LoadConfig loads configuration from file and environment variables
+// LoadConfig 从文件和环境变量加载配置
 func LoadConfig(configPath string) (*Config, error) {
 	config := &Config{
 		WebSocket: WebSocketConfig{
@@ -141,7 +144,7 @@ func LoadConfig(configPath string) (*Config, error) {
 		Interval: "1m",
 	}
 
-	// Load from file if exists
+	// 如果文件存在则从文件加载
 	if configPath != "" {
 		if _, err := os.Stat(configPath); err == nil {
 			data, err := ioutil.ReadFile(configPath)
@@ -155,13 +158,13 @@ func LoadConfig(configPath string) (*Config, error) {
 		}
 	}
 
-	// Override with environment variables
+	// 用环境变量覆盖配置
 	overrideWithEnv(config)
 
 	return config, nil
 }
 
-// overrideWithEnv overrides configuration with environment variables
+// overrideWithEnv 用环境变量覆盖配置
 func overrideWithEnv(config *Config) {
 	if host := os.Getenv("CLICKHOUSE_HOST"); host != "" {
 		config.Database.Host = host
@@ -184,7 +187,7 @@ func overrideWithEnv(config *Config) {
 		config.Database.Table = table
 	}
 
-	// Proxy configuration from environment
+	// 从环境变量获取代理配置
 	if httpProxy := os.Getenv("HTTP_PROXY"); httpProxy != "" {
 		config.Proxy.Enabled = true
 		parseProxyURL(httpProxy, &config.Proxy)
@@ -209,7 +212,7 @@ func overrideWithEnv(config *Config) {
 		parseProxyURL(allProxy, &config.Proxy)
 	}
 
-	// API configuration
+	// API配置
 	if apiPort := os.Getenv("API_PORT"); apiPort != "" {
 		if p, err := strconv.Atoi(apiPort); err == nil {
 			config.API.Port = p
@@ -220,7 +223,7 @@ func overrideWithEnv(config *Config) {
 	}
 }
 
-// parseProxyURL parses proxy URL and updates proxy config
+// parseProxyURL 解析代理URL并更新代理配置
 func parseProxyURL(proxyURL string, proxy *ProxyConfig) {
 	if strings.HasPrefix(proxyURL, "http://") {
 		proxy.Type = "http"
@@ -242,7 +245,7 @@ func parseProxyURL(proxyURL string, proxy *ProxyConfig) {
 	}
 }
 
-// GetDSN returns the ClickHouse DSN
+// GetDSN 返回ClickHouse DSN
 func (c *Config) GetDSN() string {
 	return fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s",
 		c.Database.Username,
@@ -252,7 +255,7 @@ func (c *Config) GetDSN() string {
 		c.Database.Database)
 }
 
-// GetProxyURL returns the proxy URL
+// GetProxyURL 返回代理URL
 func (c *Config) GetProxyURL() string {
 	if !c.Proxy.Enabled {
 		return ""

@@ -17,7 +17,7 @@ import (
 	"data4trend/pkg/websocket"
 )
 
-// Server represents the API server
+// Server 代表API服务器
 type Server struct {
 	config    *config.Config
 	storage   *storage.ClickHouseStorage
@@ -29,9 +29,9 @@ type Server struct {
 	router    *gin.Engine
 }
 
-// NewServer creates a new API server
+// NewServer 创建新的API服务器
 func NewServer(cfg *config.Config, storage *storage.ClickHouseStorage, ws *websocket.Client, integrity *integrity.DataIntegrityService, validator *validation.DataValidator, logger *logrus.Logger) *Server {
-	// Set gin mode
+	// 设置gin模式
 	gin.SetMode(gin.ReleaseMode)
 
 	router := gin.New()
@@ -39,7 +39,7 @@ func NewServer(cfg *config.Config, storage *storage.ClickHouseStorage, ws *webso
 	router.Use(corsMiddleware())
 	router.Use(loggingMiddleware(logger))
 
-	// Initialize backfill service
+	// 初始化回补服务
 	backfillService := backfill.NewBackfillService(cfg, storage, logger)
 
 	server := &Server{

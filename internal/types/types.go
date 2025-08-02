@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-// KlineData represents a single kline/candlestick data point
+// KlineData 代表单个K线/蜡烛图数据点
 type KlineData struct {
 	Symbol    string    `json:"symbol" db:"symbol"`
 	OpenTime  int64     `json:"open_time" db:"open_time"`
@@ -17,7 +17,7 @@ type KlineData struct {
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 }
 
-// BinanceKlineEvent represents the WebSocket kline event from Binance
+// BinanceKlineEvent 代表来自Binance的WebSocket K线事件
 type BinanceKlineEvent struct {
 	EventType string `json:"e"`
 	EventTime int64  `json:"E"`
@@ -43,7 +43,7 @@ type BinanceKlineEvent struct {
 	} `json:"k"`
 }
 
-// SymbolInfo represents trading pair information
+// SymbolInfo 代表交易对信息
 type SymbolInfo struct {
 	Symbol     string `json:"symbol"`
 	BaseAsset  string `json:"baseAsset"`
@@ -51,14 +51,14 @@ type SymbolInfo struct {
 	Status     string `json:"status"`
 }
 
-// ExchangeInfo represents Binance exchange information
+// ExchangeInfo 代表Binance交易所信息
 type ExchangeInfo struct {
 	Timezone   string       `json:"timezone"`
 	ServerTime int64        `json:"serverTime"`
 	Symbols    []SymbolInfo `json:"symbols"`
 }
 
-// MonitoringStats represents system monitoring statistics
+// MonitoringStats 代表系统监控统计信息
 type MonitoringStats struct {
 	Uptime          time.Duration `json:"uptime"`
 	MessagesTotal   int64         `json:"messages_total"`

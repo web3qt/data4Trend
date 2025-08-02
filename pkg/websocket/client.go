@@ -18,7 +18,7 @@ import (
 	"data4trend/pkg/kafka"
 )
 
-// Client represents a WebSocket client for Binance streams
+// Client 代表Binance流的WebSocket客户端
 type Client struct {
 	config      *config.Config
 	kafkaProducer *kafka.Producer
@@ -30,7 +30,7 @@ type Client struct {
 	stats       *Stats
 }
 
-// Stats represents WebSocket client statistics
+// Stats 代表WebSocket客户端统计信息
 type Stats struct {
 	Connections     int       `json:"connections"`
 	MessagesTotal   int64     `json:"messages_total"`
@@ -39,7 +39,7 @@ type Stats struct {
 	mutex           sync.RWMutex
 }
 
-// NewClient creates a new WebSocket client
+// NewClient 创建新的WebSocket客户端
 func NewClient(cfg *config.Config, kafkaProducer *kafka.Producer, logger *logrus.Logger) *Client {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Client{

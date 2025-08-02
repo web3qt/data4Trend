@@ -16,14 +16,14 @@ import (
 )
 
 func main() {
-	// Command line flags
+	// 命令行参数
 	configPath := flag.String("config", "config.yaml", "Path to configuration file")
 	logLevel := flag.String("log-level", "info", "Log level (debug, info, warn, error)")
 	runOnce := flag.Bool("once", false, "Run validation once and exit")
 	showStats := flag.Bool("stats", false, "Show validator statistics and exit")
 	flag.Parse()
 
-	// Setup logger
+	// 设置日志器
 	logger := logrus.New()
 	level, err := logrus.ParseLevel(*logLevel)
 	if err != nil {
@@ -37,13 +37,13 @@ func main() {
 
 	logger.Info("Starting Data Validator & Backfiller Service")
 
-	// Load configuration
+	// 加载配置
 	cfg, err := config.LoadConfig(*configPath)
 	if err != nil {
 		logger.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Validate validator configuration
+	// 验证验证器配置
 	if !cfg.Validator.Enabled {
 		logger.Warn("Validator is disabled in configuration")
 		os.Exit(0)
@@ -57,7 +57,7 @@ func main() {
 		"concurrent_workers": cfg.Validator.ConcurrentWorkers,
 	}).Info("Validator configuration loaded")
 
-	// Initialize storage
+	// 初始化存储
 	logger.Info("Connecting to ClickHouse...")
 	storage, err := storage.NewClickHouseStorage(cfg, logger)
 	if err != nil {
@@ -65,48 +65,48 @@ func main() {
 	}
 	defer storage.Close()
 
-	// Test storage connection
+	// 测试存储连接
 	if err := storage.TestConnection(); err != nil {
 		logger.Fatalf("Failed to connect to storage: %v", err)
 	}
 	logger.Info("Successfully connected to ClickHouse")
 
-	// Initialize backfill service
+	// 初始化回补服务
 	logger.Info("Initializing backfill service...")
 	backfillService := backfill.NewBackfillService(cfg, storage, logger)
 
-	// Initialize validator service
+	// 初始化验证器服务
 	logger.Info("Initializing validator service...")
 	validatorService := validator.NewValidatorService(cfg, storage, backfillService, logger)
 
-	// Handle stats request
+	// 处理统计请求
 	if *showStats {
 		showValidatorStats(validatorService, logger)
 		return
 	}
 
-	// Handle run-once mode
+	// 处理单次运行模式
 	if *runOnce {
 		runValidationOnce(validatorService, logger)
 		return
 	}
 
-	// Start validator service
+	// 启动验证器服务
 	logger.Info("Starting validator service...")
 	validatorService.Start()
 
 	logger.Info("Validator service started successfully")
 	logger.Info("Press Ctrl+C to stop the service")
 
-	// Setup signal handling for graceful shutdown
+	// 设置信号处理以优雅关闭
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	// Wait for shutdown signal
+	// 等待关闭信号
 	sig := <-sigChan
 	logger.WithField("signal", sig).Info("Received shutdown signal")
 
-	// Graceful shutdown
+	// 优雅关闭
 	logger.Info("Stopping validator service...")
 	validatorService.Stop()
 	logger.Info("Validator service stopped successfully")
@@ -114,7 +114,7 @@ func main() {
 	logger.Info("Data Validator & Backfiller Service shutdown complete")
 }
 
-// showValidatorStats displays current validator statistics
+// showValidatorStats 显示当前验证器统计信息
 func showValidatorStats(validatorService *validator.ValidatorService, logger *logrus.Logger) {
 	stats := validatorService.GetStats()
 
@@ -131,13 +131,13 @@ func showValidatorStats(validatorService *validator.ValidatorService, logger *lo
 	logger.Info("=== End Statistics ===")
 }
 
-// runValidationOnce performs a single validation run and exits
+// runValidationOnce 执行单次验证运行并退出
 func runValidationOnce(validatorService *validator.ValidatorService, logger *logrus.Logger) {
 	logger.Info("Running single validation check...")
 
 	start := time.Now()
 
-	// Define validation time range (last 24 hours)
+	// 定义验证时间范围（最近24小时）
 	endTime := time.Now()
 	startTime := endTime.Add(-24 * time.Hour)
 
@@ -146,7 +146,7 @@ func runValidationOnce(validatorService *validator.ValidatorService, logger *log
 		"end_time":   endTime.Format("2006-01-02 15:04:05"),
 	}).Info("Validation time range")
 
-	// Run validation for the time range
+	// 对时间范围运行验证
 	result := validatorService.ValidateDataRange(startTime, endTime)
 
 	duration := time.Since(start)

@@ -37,6 +37,9 @@ kafka:
     batch_timeout: "1s"
     compression: "snappy"
     max_message_bytes: 1000000
+    channel_buffer_size: 2048    # 通道缓冲区大小，防止通道满
+    flush_bytes: 16384           # 16KB批量刷新大小
+    send_timeout: "5s"           # 发送超时时间
   consumer:
     group_id: "data4trend_consumer"
     auto_offset_reset: "latest"
