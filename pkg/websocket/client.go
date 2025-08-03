@@ -203,10 +203,30 @@ func (c *Client) processMessage(message []byte, symbol string) error {
 	}
 
 	// Convert to KlineData
+	// 检查时间戳是否为毫秒级（13位数字）还是秒级（10位数字）
+	var openTime, closeTime time.Time
+	
+	if event.Kline.OpenTime > 9999999999 { // 13位数字，毫秒级
+		openTime = time.Unix(event.Kline.OpenTime/1000, 0)
+	} else { // 10位数字，秒级
+		openTime = time.Unix(event.Kline.OpenTime, 0)
+	}
+	
+	if event.Kline.CloseTime > 9999999999 { // 13位数字，毫秒级
+		closeTime = time.Unix(event.Kline.CloseTime/1000, 0)
+	} else { // 10位数字，秒级
+		closeTime = time.Unix(event.Kline.CloseTime, 0)
+	}
+	
+	// 添加调试日志
+	c.logger.Debugf("Time conversion for %s: OpenTime timestamp=%d -> %s, CloseTime timestamp=%d -> %s", 
+		event.Kline.Symbol, event.Kline.OpenTime, openTime.Format("2006-01-02 15:04:05"),
+		event.Kline.CloseTime, closeTime.Format("2006-01-02 15:04:05"))
+	
 	klineData := &types.KlineData{
 		Symbol:    strings.ToUpper(event.Kline.Symbol),
-		OpenTime:  event.Kline.OpenTime,
-		CloseTime: event.Kline.CloseTime,
+		OpenTime:  openTime,
+		CloseTime: closeTime,
 		Open:      event.Kline.Open,
 		High:      event.Kline.High,
 		Low:       event.Kline.Low,

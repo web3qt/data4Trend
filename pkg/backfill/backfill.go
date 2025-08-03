@@ -191,10 +191,30 @@ func (bs *BackfillService) FetchHistoricalKlines(symbol string, startTime, endTi
 		close, _ := item[4].(string)
 		volume, _ := item[5].(string)
 
+		// 检查时间戳是否为毫秒级（13位数字）还是秒级（10位数字）
+		var openTimeConverted, closeTimeConverted time.Time
+		
+		if int64(openTime) > 9999999999 { // 13位数字，毫秒级
+			openTimeConverted = time.Unix(int64(openTime)/1000, 0)
+		} else { // 10位数字，秒级
+			openTimeConverted = time.Unix(int64(openTime), 0)
+		}
+		
+		if int64(closeTime) > 9999999999 { // 13位数字，毫秒级
+			closeTimeConverted = time.Unix(int64(closeTime)/1000, 0)
+		} else { // 10位数字，秒级
+			closeTimeConverted = time.Unix(int64(closeTime), 0)
+		}
+		
+		// 添加调试日志
+		bs.logger.Debugf("Backfill time conversion for %s: OpenTime timestamp=%v -> %s, CloseTime timestamp=%v -> %s", 
+			symbol, openTime, openTimeConverted.Format("2006-01-02 15:04:05"),
+			closeTime, closeTimeConverted.Format("2006-01-02 15:04:05"))
+		
 		kline := &types.KlineData{
 			Symbol:    symbol,
-			OpenTime:  int64(openTime),
-			CloseTime: int64(closeTime),
+			OpenTime:  openTimeConverted,
+			CloseTime: closeTimeConverted,
 			Open:      open,
 			High:      high,
 			Low:       low,
@@ -329,7 +349,7 @@ func (bs *BackfillService) deduplicateAndSortKlines(klines []*types.KlineData) [
 	}
 
 	// 使用map去重，以OpenTime为key
-	uniqueMap := make(map[int64]*types.KlineData)
+	uniqueMap := make(map[time.Time]*types.KlineData)
 	for _, kline := range klines {
 		uniqueMap[kline.OpenTime] = kline
 	}
@@ -343,7 +363,7 @@ func (bs *BackfillService) deduplicateAndSortKlines(klines []*types.KlineData) [
 	// 按OpenTime排序
 	for i := 0; i < len(uniqueKlines)-1; i++ {
 		for j := i + 1; j < len(uniqueKlines); j++ {
-			if uniqueKlines[i].OpenTime > uniqueKlines[j].OpenTime {
+			if uniqueKlines[i].OpenTime.After(uniqueKlines[j].OpenTime) {
 				uniqueKlines[i], uniqueKlines[j] = uniqueKlines[j], uniqueKlines[i]
 			}
 		}

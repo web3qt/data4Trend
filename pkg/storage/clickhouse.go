@@ -77,8 +77,8 @@ func (s *ClickHouseStorage) initializeDatabase() error {
 	createTableQuery := fmt.Sprintf(`
 		CREATE TABLE IF NOT EXISTS %s.%s (
 			symbol String,
-			open_time Int64,
-			close_time Int64,
+			open_time DateTime,
+			close_time DateTime,
 			open String,
 			high String,
 			low String,
@@ -88,7 +88,7 @@ func (s *ClickHouseStorage) initializeDatabase() error {
 			version UInt32 DEFAULT 1
 		) ENGINE = ReplacingMergeTree(version)
 		ORDER BY (symbol, open_time)
-		PARTITION BY toYYYYMM(toDateTime(open_time / 1000))
+		PARTITION BY toYYYYMM(open_time)
 	`, s.config.Database.Database, s.config.Database.Table)
 
 	if err := s.conn.Exec(ctx, createTableQuery); err != nil {
@@ -176,7 +176,7 @@ func (s *ClickHouseStorage) BatchInsertKlineData(dataList []*types.KlineData) er
 	}
 
 	duration := time.Since(startTime)
-	s.logger.Infof("Successfully inserted %d kline records in %v (%.2f records/sec)", 
+	s.logger.Infof("Successfully inserted %d kline records in %v (%.2f records/sec)",
 		len(dataList), duration, float64(len(dataList))/duration.Seconds())
 	return nil
 }
@@ -200,12 +200,12 @@ func (s *ClickHouseStorage) GetKlineData(symbol string, limit int, startTime, en
 
 	if startTime != nil {
 		query += " AND open_time >= ?"
-		args = append(args, startTime.UnixMilli())
+		args = append(args, *startTime)
 	}
 
 	if endTime != nil {
 		query += " AND open_time <= ?"
-		args = append(args, endTime.UnixMilli())
+		args = append(args, *endTime)
 	}
 
 	query += " ORDER BY open_time DESC"
@@ -332,12 +332,12 @@ func (s *ClickHouseStorage) GetAnomalousData() ([]map[string]interface{}, error)
 		SELECT 
 			symbol,
 			open_time,
-			open_price,
-			close_price,
-			(close_price - open_price) / open_price * 100 as price_change_pct
+			CAST(open AS Float64) as open_price,
+			CAST(close AS Float64) as close_price,
+			(CAST(close AS Float64) - CAST(open AS Float64)) / CAST(open AS Float64) * 100 as price_change_pct
 		FROM %s.%s 
 		WHERE created_at >= now() - INTERVAL 24 HOUR
-			AND abs((close_price - open_price) / open_price * 100) > 50
+			AND abs((CAST(close AS Float64) - CAST(open AS Float64)) / CAST(open AS Float64) * 100) > 50
 		ORDER BY abs(price_change_pct) DESC
 		LIMIT 100
 	`, s.config.Database.Database, s.config.Database.Table)
@@ -350,7 +350,7 @@ func (s *ClickHouseStorage) GetAnomalousData() ([]map[string]interface{}, error)
 
 	for rows.Next() {
 		var symbol string
-		var openTime int64
+		var openTime time.Time
 		var openPrice, closePrice, priceChangePct float64
 		if err := rows.Scan(&symbol, &openTime, &openPrice, &closePrice, &priceChangePct); err != nil {
 			continue
@@ -358,7 +358,7 @@ func (s *ClickHouseStorage) GetAnomalousData() ([]map[string]interface{}, error)
 
 		result = append(result, map[string]interface{}{
 			"symbol":           symbol,
-			"timestamp":        time.Unix(openTime/1000, 0),
+			"timestamp":        openTime,
 			"open_price":       openPrice,
 			"close_price":      closePrice,
 			"price_change_pct": priceChangePct,
@@ -461,11 +461,11 @@ func (s *ClickHouseStorage) DetectDataGaps(symbol string, startTime, endTime tim
 				FROM numbers(dateDiff('minute', toDateTime('%s'), toDateTime('%s')) + 1)
 			),
 			actual_data AS (
-				SELECT DISTINCT toDateTime(open_time) as actual_time
+				SELECT DISTINCT open_time as actual_time
 				FROM %s.%s 
 				WHERE symbol = '%s' 
-					AND toDateTime(open_time) >= toDateTime('%s') 
-					AND toDateTime(open_time) <= toDateTime('%s')
+					AND open_time >= toDateTime('%s') 
+					AND open_time <= toDateTime('%s')
 			)
 		SELECT expected_time
 		FROM time_series
@@ -548,7 +548,7 @@ func (s *ClickHouseStorage) GetDataGapsForAllSymbols() (map[string][]*DataGap, e
 	result := make(map[string][]*DataGap)
 
 	// 获取所有交易对
-	symbolQuery := fmt.Sprintf("SELECT DISTINCT symbol FROM %s.%s WHERE toDateTime(open_time) >= now() - INTERVAL 24 HOUR",
+	symbolQuery := fmt.Sprintf("SELECT DISTINCT symbol FROM %s.%s WHERE open_time >= now() - INTERVAL 24 HOUR",
 		s.config.Database.Database, s.config.Database.Table)
 
 	rows, err := s.conn.Query(ctx, symbolQuery)

@@ -15,7 +15,7 @@ websocket:
   timeout: 30
   # symbols列表将从币安API动态获取
   # 支持所有USDT交易对
-  auto_fetch_symbols: false
+  auto_fetch_symbols: true
   symbol_filter:
     quote_asset: USDT
     exclude_patterns:
@@ -84,14 +84,15 @@ proxy:
 interval: "1m"
 
 # 手动配置的交易对列表（当auto_fetch_symbols为false时使用）
-symbols:
-  - "BTCUSDT"
-  - "ETHUSDT"
-  - "BNBUSDT"
-  - "ADAUSDT"
-  - "SOLUSDT"
-  - "XRPUSDT"
-  - "DOTUSDT"
-  - "DOGEUSDT"
-  - "AVAXUSDT"
-  - "MATICUSDT"
+# 注释掉手动配置的交易对，启用自动获取
+# symbols:
+#   - "BTCUSDT"
+#   - "ETHUSDT"
+#   - "BNBUSDT"
+#   - "ADAUSDT"
+#   - "SOLUSDT"
+#   - "XRPUSDT"
+#   - "DOTUSDT"
+#   - "DOGEUSDT"
+#   - "AVAXUSDT"
+#   - "MATICUSDT"

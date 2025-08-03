@@ -1,343 +1,212 @@
-# Data4Trend - 币安WebSocket数据收集器
-
-基于Go语言开发的高性能币安交易所实时数据收集器，支持1分钟K线数据收集，存储到ClickHouse数据库，并提供REST API接口。
-
-## ✨ 项目特性
-
-- 🚀 **高性能**: Go语言开发，支持高并发WebSocket连接
-- 📊 **实时数据**: 实时收集币安交易所K线数据
-- 🗄️ **ClickHouse存储**: 高效的列式数据库存储
-- 🌐 **REST API**: 提供完整的数据查询API
-- 🔄 **自动重连**: 智能重连机制，确保数据连续性
-- 🛡️ **代理支持**: 支持HTTP代理，避免网络限制
-- 📈 **监控系统**: 内置监控和健康检查
-- 🔧 **易于部署**: 单一二进制文件，配置简单
-- 🔍 **数据校验**: 自动检测数据缺口并进行回补
-- ⚡ **KRaft模式**: 使用无ZooKeeper的Kafka KRaft模式
-
-## 🚀 快速开始
-
-### 启动程序
-```bash
-# 使用启动脚本（推荐）
-./start.sh
-
-# 或手动启动
-export HTTP_PROXY=http://127.0.0.1:7890
-export HTTPS_PROXY=http://127.0.0.1:7890
-./data4trend-collector --config=config/config.yaml --log-level=info
-```
-
-### 数据库管理
-```bash
-# 清理数据库，重新开始
-./clean_database.sh
-```
-
-### 编译程序
-```bash
-# 编译数据收集器
-go build -o bin/data4trend-collector cmd/collector/main.go
-
-# 编译数据校验与回补服务
-go build -o bin/backfill-validator cmd/backfill-validator/main.go
-```
-
-### 数据校验与回补服务
-```bash
-# 运行数据校验服务（持续模式）
-./bin/backfill-validator -config config/config.yaml
-
-# 仅执行验证，不进行回填
-./bin/backfill-validator -config config/config.yaml -validate-only
-
-# 回填特定交易对
-./bin/backfill-validator -config config/config.yaml -symbol BTCUSDT -days 5
-
-# 回填所有交易对
-./bin/backfill-validator -config config/config.yaml -days 5
-```
-
-## 🌐 API接口
-
-程序启动后，API服务器运行在 `http://localhost:8080`
-
-### 健康检查
-```bash
-curl http://localhost:8080/health
-```
-
-### 获取统计信息
-```bash
-# 数据库统计
-curl http://localhost:8080/api/v1/stats
-
-# WebSocket连接统计
-curl http://localhost:8080/api/v1/websocket/stats
-```
-
-### 获取K线数据
-```bash
-# 获取BTCUSDT最新5条数据
-curl "http://localhost:8080/api/v1/klines/BTCUSDT?limit=5"
-
-# 获取指定时间范围的数据
-curl "http://localhost:8080/api/v1/klines/ETHUSDT?limit=10&start_time=1640995200000&end_time=1640998800000"
-```
-
-### 数据回填接口
-```bash
-# 检查数据缺口状态
-curl http://localhost:8080/api/v1/backfill/status
-
-# 回填特定交易对的数据（默认最近24小时）
-curl -X POST http://localhost:8080/api/v1/backfill/symbol/BTCUSDT
-
-# 回填特定时间范围的数据
-curl -X POST 'http://localhost:8080/api/v1/backfill/symbol/BTCUSDT?start_time=2025-07-30T04:00:00Z&end_time=2025-07-30T04:10:00Z'
-
-# 回填所有交易对的数据缺口
-curl -X POST http://localhost:8080/api/v1/backfill/all
-```
-
-## 📊 数据库连接
-
-### ClickHouse连接信息
-- **主机**: localhost
-- **HTTP端口**: 8123
-- **用户名**: default
-- **密码**: 123456
-- **数据库**: data4trend
-
-### 直接查询数据库
-```bash
-# 测试连接
-curl -u default:123456 "http://localhost:8123" --data-binary "SELECT 1"
-
-# 查看表
-curl -u default:123456 "http://localhost:8123" --data-binary "SHOW TABLES FROM data4trend"
-
-# 查看数据量
-curl -u default:123456 "http://localhost:8123" --data-binary "SELECT count(*) FROM data4trend.klines_1m"
-```
-
-## 📁 项目结构
-
-```
-data4Trend/
-├── cmd/collector/          # 主程序入口
-├── pkg/                    # 核心包
-│   ├── api/               # REST API服务器
-│   ├── config/            # 配置管理
-│   ├── monitoring/        # 监控系统
-│   ├── storage/           # ClickHouse存储
-│   └── websocket/         # WebSocket客户端
-├── internal/              # 内部包
-│   ├── types/             # 数据类型定义
-│   └── utils/             # 工具函数
-├── config/                # 配置文件
-│   ├── config_go.yaml    # 完整配置
-│   └── config_go_simple.yaml # 简化配置
-├── scripts/               # 数据库脚本
-└── docs/                  # 文档
-```
-
-## ⚙️ 配置说明
-
-### 主要配置项
-
-- **database**: ClickHouse数据库连接配置
-- **websocket**: WebSocket连接配置
-- **api**: REST API服务器配置
-- **proxy**: HTTP代理配置
-- **symbols**: 监控的交易对列表
-- **interval**: 数据收集间隔
-
-### 配置文件
-
-- `config.yaml`: 主配置文件，支持动态获取币安所有USDT交易对
-
-### 动态交易对获取
-
-程序启动时会自动从币安API获取所有可用的USDT交易对，无需手动配置交易对列表：
-
-- **自动获取**: 从币安API实时获取所有USDT交易对（通常400+个）
-- **智能过滤**: 自动排除杠杆代币（UP/DOWN/BEAR/BULL）
-- **状态检查**: 只监控状态为TRADING且支持现货交易的交易对
-- **配置灵活**: 可通过配置文件控制是否启用自动获取
-
-```yaml
-websocket:
-  auto_fetch_symbols: true    # 启用自动获取
-  symbol_filter:
-    quote_asset: USDT         # 只获取USDT交易对
-    exclude_patterns:         # 排除包含这些模式的交易对
-      - UP
-      - DOWN
-      - BEAR
-      - BULL
-```
-
-## 📈 常用查询
-
-```sql
--- 查看数据量
-SELECT count() as total_records FROM data4trend.klines_1m;
-
--- 查看最新数据
-SELECT * FROM data4trend.klines_1m ORDER BY open_time DESC LIMIT 10;
-
--- 查看特定交易对数据
-SELECT * FROM data4trend.klines_1m WHERE symbol = 'BTCUSDT' ORDER BY open_time DESC LIMIT 10;
-
--- 查看数据统计
-SELECT 
-    symbol,
-    count() as records,
-    min(open_time) as first_time,
-    max(open_time) as last_time
-FROM data4trend.klines_1m 
-GROUP BY symbol;
-```
-
-## 🔄 数据回填机制
-
-### 工作原理
-
-数据回填机制是为了解决程序重启或网络中断导致的数据缺失问题。系统通过以下步骤实现智能数据回填：
-
-#### 1. 数据缺口检测
-- **时间序列生成**: 使用ClickHouse的`numbers()`函数生成连续的1分钟时间序列
-- **实际数据对比**: 查询数据库中已存在的数据记录
-- **缺口识别**: 通过LEFT JOIN找出时间序列中缺失的数据点
-
-```sql
-WITH 
-    time_series AS (
-        SELECT toDateTime(number * 60 + toUnixTimestamp(toDateTime('start_time'))) as expected_time
-        FROM numbers(dateDiff('minute', toDateTime('start_time'), toDateTime('end_time')) + 1)
-    ),
-    actual_data AS (
-        SELECT DISTINCT toDateTime(toInt64(open_time) / 1000) as actual_time
-        FROM data4trend.klines_1m 
-        WHERE symbol = 'BTCUSDT' AND ...
-    )
-SELECT expected_time
-FROM time_series
-LEFT JOIN actual_data ON time_series.expected_time = actual_data.actual_time
-WHERE actual_data.actual_time IS NULL
-```
-
-#### 2. 历史数据获取
-- **币安API调用**: 使用币安REST API获取历史K线数据
-- **代理支持**: 自动使用配置的HTTP代理
-- **速率限制**: 内置100ms请求间隔，避免触发API限制
-- **数据转换**: 将币安API返回的数据转换为内部格式
-
-#### 3. 数据插入
-- **批量插入**: 使用ClickHouse的批量插入功能提高效率
-- **重复检测**: 数据库层面的去重机制
-- **事务安全**: 确保数据一致性
-
-#### 4. 回填策略
-- **按需回填**: 支持特定交易对和时间范围的回填
-- **全量回填**: 检测所有交易对的数据缺口并自动回填
-- **智能分组**: 将连续的缺失时间点合并为时间段，减少API调用次数
-
-### 使用场景
-
-1. **程序重启后**: 自动检测停机期间的数据缺失并回填
-2. **网络中断**: 恢复连接后补充中断期间的数据
-3. **历史数据补充**: 获取项目启动前的历史数据
-4. **数据质量保证**: 定期检查和修复数据完整性
-
-### 数据保留策略
-
-- **自动清理**: ClickHouse TTL机制自动删除7天前的数据
-- **存储优化**: 列式存储和压缩，节省存储空间
-- **性能保证**: 定期清理确保查询性能
-
-### 监控和状态
-
-通过API接口可以实时监控回填状态：
-- 检测到的数据缺口数量
-- 各交易对的缺失情况
-- 回填操作的成功率和耗时
-
-## 🔧 代理设置
-
-如果需要使用代理访问币安API，请设置环境变量：
-
-```bash
-# 设置HTTP代理
-export HTTP_PROXY=http://127.0.0.1:7890
-export HTTPS_PROXY=http://127.0.0.1:7890
-
-# 然后启动程序
-./start_go_simple.sh
-```
-
-## 🎯 运行状态检查
-
-### 程序正常运行的标志
-- ✅ WebSocket连接成功日志
-- ✅ API服务器启动在8080端口
-- ✅ ClickHouse数据库连接成功
-- ✅ 数据开始写入数据库
-
-### 健康检查命令
-```bash
-# 检查API服务器
-curl http://localhost:8080/health
-
-# 检查数据库连接
-curl -u default:123456 "http://localhost:8123" --data-binary "SELECT 1"
-
-# 检查数据写入
-curl http://localhost:8080/api/v1/stats
-```
-
-## 🛠️ 故障排除
-
-### 常见问题
-
-1. **WebSocket连接失败**
-   - 检查网络连接
-   - 确认代理设置正确
-   - 查看是否被币安限制
-
-2. **数据库连接失败**
-   - 确认ClickHouse服务运行
-   - 检查连接配置
-   - 验证用户名密码
-
-3. **API服务器无响应**
-   - 检查8080端口是否被占用
-   - 查看程序启动日志
-
-### 日志查看
-```bash
-# 查看程序运行日志
-./bin/data4trend-collector --config=config/config_go_simple.yaml --log-level=debug
-```
-
-## 📋 技术栈
-
-- **语言**: Go 1.21+
-- **数据库**: ClickHouse
-- **WebSocket**: gorilla/websocket
-- **HTTP路由**: gin-gonic/gin
-- **配置**: YAML
-- **日志**: logrus
-
-## 📄 许可证
-
-本项目采用 MIT 许可证。
-
-## 🤝 贡献
-
-欢迎提交 Issue 和 Pull Request！
+# Data4Trend - 币安实时K线数据收集系统
+
+## 项目概述
+
+Data4Trend 是一个高性能的币安实时K线数据收集系统，专门用于收集、存储和分析币安交易所的实时K线数据。系统采用现代化的微服务架构，支持实时数据流处理、历史数据回填、数据质量监控等功能。
+
+## 核心功能
+
+### 🔄 实时数据收集
+- **多交易对支持**：自动获取并监控币安所有USDT交易对（约400+个）
+- **实时K线数据**：收集1分钟K线数据，包括开盘价、最高价、最低价、收盘价、成交量
+- **高并发处理**：支持同时处理数百个WebSocket连接
+- **自动重连机制**：网络中断时自动重连，确保数据连续性
+
+### 📊 数据存储与管理
+- **高性能存储**：使用ClickHouse数据库，专为时序数据优化
+- **数据分区**：按月分区存储，提高查询性能
+- **数据去重**：自动处理重复数据，确保数据一致性
+- **数据压缩**：高效的数据压缩算法，节省存储空间
+
+### 🔍 数据质量监控
+- **实时监控**：监控数据收集状态、连接健康度
+- **数据完整性检查**：自动检测数据缺口和异常
+- **自动修复**：发现数据缺口时自动触发回填
+- **性能指标**：实时统计数据处理性能
+
+### 📈 历史数据回填
+- **智能回填**：自动检测并回填缺失的历史数据
+- **批量处理**：支持大规模历史数据批量导入
+- **数据验证**：回填后自动验证数据完整性
+- **进度跟踪**：实时显示回填进度和状态
+
+## 系统架构
+
+### 核心组件
+
+1. **WebSocket客户端**
+   - 连接币安WebSocket API
+   - 实时接收K线数据
+   - 支持代理连接
+
+2. **Kafka消息队列**
+   - 解耦数据收集和存储
+   - 提供数据缓冲和容错
+   - 支持多消费者并行处理
+
+3. **批量写入器**
+   - 批量写入ClickHouse
+   - 优化写入性能
+   - 自动重试机制
+
+4. **数据完整性服务**
+   - 监控数据质量
+   - 检测数据缺口
+   - 触发自动修复
+
+5. **回填服务**
+   - 历史数据获取
+   - 批量数据处理
+   - 数据验证和修复
+
+### 技术栈
+
+- **后端语言**：Go
+- **数据库**：ClickHouse
+- **消息队列**：Apache Kafka
+- **容器化**：Docker & Docker Compose
+- **代理支持**：SOCKS5/HTTP代理
+
+## 快速开始
+
+### 环境要求
+
+- Docker & Docker Compose
+- Go 1.19+
+- 至少4GB内存
+- 稳定的网络连接
+
+### 安装步骤
+
+1. **克隆项目**
+   ```bash
+   git clone <repository-url>
+   cd data4Trend
+   ```
+
+2. **启动数据库**
+   ```bash
+   ./manage_clickhouse.sh start
+   ```
+
+3. **启动Kafka**
+   ```bash
+   docker-compose up -d
+   ```
+
+4. **启动数据收集服务**
+   ```bash
+   ./start_collector.sh
+   ```
+
+### 配置说明
+
+系统支持以下配置选项：
+
+- **代理设置**：支持SOCKS5和HTTP代理
+- **交易对过滤**：可配置要监控的交易对类型
+- **数据保留**：可设置数据保留期限
+- **性能调优**：可调整批量大小、超时时间等参数
+
+## 监控与管理
+
+### 实时监控
+
+系统提供多种监控方式：
+
+- **Web API**：RESTful API接口，提供系统状态查询
+- **日志监控**：详细的日志记录，便于问题排查
+- **性能指标**：实时显示数据处理性能
+
+### 数据查询
+
+支持多种数据查询方式：
+
+- **时间范围查询**：按时间范围查询历史数据
+- **交易对查询**：查询特定交易对的数据
+- **聚合查询**：支持数据聚合和统计分析
+
+### 故障处理
+
+系统具备完善的故障处理机制：
+
+- **自动重连**：网络中断时自动重连
+- **数据恢复**：支持从故障点恢复数据收集
+- **错误告警**：异常情况自动告警
+
+## 性能特点
+
+### 高吞吐量
+- 支持同时处理400+个交易对
+- 每秒处理数千条数据记录
+- 批量写入优化，提高存储效率
+
+### 低延迟
+- 实时数据流处理
+- 毫秒级数据延迟
+- 优化的网络连接
+
+### 高可用性
+- 自动故障恢复
+- 数据备份和恢复
+- 7x24小时稳定运行
+
+## 应用场景
+
+### 量化交易
+- 为量化交易策略提供实时数据
+- 支持高频交易数据需求
+- 提供历史数据回测支持
+
+### 数据分析
+- 市场趋势分析
+- 价格波动研究
+- 交易量统计分析
+
+### 风险管理
+- 实时市场监控
+- 异常交易检测
+- 风险指标计算
+
+## 扩展性
+
+### 水平扩展
+- 支持多实例部署
+- 负载均衡支持
+- 集群化部署
+
+### 功能扩展
+- 支持更多数据源
+- 可扩展数据处理管道
+- 支持自定义分析模块
+
+## 维护与支持
+
+### 日常维护
+- 定期数据备份
+- 性能监控和调优
+- 系统日志清理
+
+### 故障排除
+- 详细的故障排查指南
+- 常见问题解决方案
+- 技术支持文档
+
+## 许可证
+
+本项目采用 MIT 许可证，详见 LICENSE 文件。
+
+## 贡献指南
+
+欢迎提交 Issue 和 Pull Request 来改进项目。
+
+## 联系方式
+
+如有问题或建议，请通过以下方式联系：
+
+- 提交 GitHub Issue
+- 发送邮件至项目维护者
 
 ---
 
-**Data4Trend** - 专业的加密货币数据收集解决方案
+**注意**：本项目仅供学习和研究使用，请遵守相关法律法规和交易所使用条款。 

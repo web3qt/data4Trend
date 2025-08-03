@@ -7,8 +7,8 @@ import (
 // KlineData 代表单个K线/蜡烛图数据点
 type KlineData struct {
 	Symbol    string    `json:"symbol" db:"symbol"`
-	OpenTime  int64     `json:"open_time" db:"open_time"`
-	CloseTime int64     `json:"close_time" db:"close_time"`
+	OpenTime  time.Time `json:"open_time" db:"open_time"`
+	CloseTime time.Time `json:"close_time" db:"close_time"`
 	Open      string    `json:"open" db:"open"`
 	High      string    `json:"high" db:"high"`
 	Low       string    `json:"low" db:"low"`

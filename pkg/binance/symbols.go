@@ -21,11 +21,11 @@ type ExchangeInfo struct {
 
 // SymbolInfo 代表来自Binance的交易对信息
 type SymbolInfo struct {
-	Symbol     string `json:"symbol"`
-	BaseAsset  string `json:"baseAsset"`
-	QuoteAsset string `json:"quoteAsset"`
-	Status     string `json:"status"`
-	IsSpotTradingAllowed bool `json:"isSpotTradingAllowed"`
+	Symbol               string `json:"symbol"`
+	BaseAsset            string `json:"baseAsset"`
+	QuoteAsset           string `json:"quoteAsset"`
+	Status               string `json:"status"`
+	IsSpotTradingAllowed bool   `json:"isSpotTradingAllowed"`
 }
 
 // SymbolService 处理从Binance动态获取交易对
@@ -61,8 +61,11 @@ func NewSymbolService(cfg *config.Config, logger *logrus.Logger) *SymbolService 
 
 // FetchSymbols 从Binance API获取所有交易对
 func (s *SymbolService) FetchSymbols() ([]string, error) {
-	// 如果禁用自动获取，使用配置的交易对
-	if !s.config.WebSocket.AutoFetchSymbols {
+	// 如果启用自动获取，总是从API获取
+	if s.config.WebSocket.AutoFetchSymbols {
+		s.logger.Info("Fetching symbols from Binance API...")
+	} else {
+		// 如果禁用自动获取，使用配置的交易对
 		if len(s.config.Symbols) > 0 {
 			s.logger.Info("Using configured symbols list")
 			return s.config.Symbols, nil
@@ -72,8 +75,6 @@ func (s *SymbolService) FetchSymbols() ([]string, error) {
 		s.logger.Warn("No symbols configured, using default symbols")
 		return defaultSymbols, nil
 	}
-
-	s.logger.Info("Fetching symbols from Binance API...")
 
 	// 从Binance获取交易所信息
 	apiURL := "https://api.binance.com/api/v3/exchangeInfo"

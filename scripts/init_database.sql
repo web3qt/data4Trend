@@ -10,8 +10,8 @@ USE data4trend;
 -- 创建1分钟K线数据表
 CREATE TABLE IF NOT EXISTS klines_1m (
     symbol String,
-    open_time Int64,
-    close_time Int64,
+    open_time DateTime,
+    close_time DateTime,
     open String,
     high String,
     low String,
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS klines_1m (
     version UInt32 DEFAULT 1
 ) ENGINE = ReplacingMergeTree(version)
 ORDER BY (symbol, open_time)
-PARTITION BY toYYYYMM(toDateTime(open_time / 1000));
+PARTITION BY toYYYYMM(open_time);
 
 -- ClickHouse MergeTree表的ORDER BY已经提供了索引，无需手动创建
 
